@@ -4,13 +4,13 @@
   "files": {
     "ignoreUnknown": true,
     "includes": [
-      "**/*.{ts,mts,js,mjs,json,jsonc}",
+      "**/*.{ts,mts,cts,tsx,js,mjs,cjs,jsx,json,jsonc}",
       "!**/worker-configuration.d.ts",
       "!**/package-lock.json",
       "!.claude/skills/wrangler",
       "!.claude/skills/workers-best-practices",
       "!.claude/settings.local.json",
-      "!scripts",
+      "!scripts/*.mjs",
       "!.claude/hooks"
     ]
   },

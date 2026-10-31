@@ -38,6 +38,9 @@
 （[issue #320](https://github.com/jun-eg/school-festival-shift/issues/320)）、前置一致では PR の base を判定できない。
 フックが `gh pr view <N> --json baseRefName` で base を引き、`main` なら止める。引けなければ止める側に倒す。
 番号の無い `gh pr merge` と REST の `pulls/<N>/merge` も止める（base の判定を素通りさせない）。
+**逆に `allow` には `gh pr merge` を入れてある。** 入れないと `/flow implement` のクッション向け merge が auto mode の判定で止まる。
+`settings.local.json` は gitignore されていて worktree ごとに置き直しになるので、どの worktree にも出てくる `settings.json` に置く（[#19](https://github.com/jun-eg/x-like-digest/issues/19)）。
+フックは `allow` より先に回るので、`main` 向けはこれまでどおり止まる。
 remote の branch を消す形（`git push --delete`・`:branch`、`gh pr merge --delete-branch`、`gh pr close --delete-branch`、REST `git/refs/heads` の DELETE、GraphQL `deleteRef`・`updateRefs`、`git push --prune`・`--mirror`）もフックが止める。消すのはリポジトリ設定（merge 時に head branch を自動削除）が担う。
 **拾えない形もある。** ファイルから読む GraphQL の query（`gh api graphql -F query=@q.graphql`）と、`git -c remote.origin.push=:x push origin` のような設定経由の refspec はコマンド行に出ないので素通りする。
 `main` への `git push` は refspec で見る。`git push origin main` だけは前置一致で拾えるので `deny` にもある。

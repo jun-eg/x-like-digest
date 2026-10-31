@@ -1,3 +1,3 @@
 export default {
   async scheduled(): Promise<void> {},
-} satisfies ExportedHandler<Env>
+} satisfies ExportedHandler<Env>;

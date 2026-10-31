@@ -86,7 +86,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
   const envFiles = dirs
     .flatMap((dir) => fs.readdirSync(dir).filter((n) => /^\.(env|dev\.vars)(\..+)?$/.test(n) && !n.endsWith('.example')).map((n) => path.join(dir, n)))
-    .filter((file) => fs.statSync(file).isFile())
+    .filter((file) => fs.statSync(file, { throwIfNoEntry: false })?.isFile())
   const known = envFiles.flatMap((file) => knownValues(fs.readFileSync(file, 'utf8')))
   const problems = scan(files, known)
   if (problems.length > 0) {

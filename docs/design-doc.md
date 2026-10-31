@@ -1,6 +1,6 @@
 ---
 source: agent/design-doc.md
-source-hash: df4f187e29289c3ca25f62d57077831b7fff6b2e
+source-hash: 4705d35465053df065166b81cfa0cf09b0069cef
 ---
 
 # Design Doc の要約: X いいね IT 情報デイリーダイジェスト

@@ -1,0 +1,16 @@
+{
+  "name": "x-like-digest",
+  "private": true,
+  "type": "module",
+  "workspaces": ["workers/*", "packages/*"],
+  "scripts": {
+    "dev": "wrangler dev -c workers/ingest/wrangler.dev.jsonc -c workers/orchestrator/wrangler.jsonc -c workers/summarizer/wrangler.jsonc",
+    "types": "npm run types --workspaces --if-present",
+    "check": "npm run check --workspaces --if-present",
+    "deploy": "npm run deploy --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "wrangler": "^4.0.0"
+  }
+}

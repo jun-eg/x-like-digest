@@ -25,6 +25,11 @@ git switch main && git pull
 - **切ったら `git log -1` で分岐元を見る。** 分岐元は**手元の `origin/main`**（設定 `worktree.baseRef` の既定値 `fresh`）なので、
   **1 を飛ばすと古いところから切れる**
 
+## Cloudflare の CLI
+
+**Cloudflare の CLI は wrangler を使う。`cf` は beta が明けるまで使わない**（理由は [`docs/agent/tech-requirements.md`](docs/agent/tech-requirements.md) の選定表）。
+`wrangler` skill は `wrangler.jsonc` が無いうちは `cf` へ誘導するが、従わない。
+
 ## なぜ 2 手が要るのか
 
 **分岐元は、始めた後では直せない。** **force-push も push 済みの rebase も止めてある**ので

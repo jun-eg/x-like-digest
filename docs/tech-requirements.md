@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: 06a827564c8587c9ec7e8afd8ae2d25251c68458
+source-hash: 57e72e9eabd66499e28c43ecc6a6ac92fbe42eaf
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト
@@ -12,7 +12,7 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 - Workers Free 3 本（ingest、orchestrator、summarizer）、D1 Free 1 本、Workers AI の Jev。常駐プロセスは無い
 - 公開するのは ingest の `POST /webhooks/x-like` だけ。秘密は Worker ごとに 1 つずつ置き、2 つ以上持たせない
-- コードは 1 リポジトリに 3 つの wrangler プロジェクト。利用者本人が実装者なので開発者向けの道具を要求してよい
+- コードは 1 リポジトリに 3 つの wrangler プロジェクト。利用者本人が実装者なので開発者向けの道具を要求してよい。CLI は wrangler と `wrangler.jsonc` で、`cf` CLI は beta で secret 投入とログが未対応、dev と deploy も wrangler に委譲しているため採らない。beta が終わったら `cf migrate --dry-run` から見直す
 
 ## 規則
 

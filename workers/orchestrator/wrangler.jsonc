@@ -10,6 +10,7 @@
     {
       "binding": "DB",
       "database_name": "x-like-digest",
+      "database_id": "6e69ba2f-5fde-43d4-ac47-38a9939f61a9",
       "migrations_dir": "../../packages/shared/migrations"
     }
   ],

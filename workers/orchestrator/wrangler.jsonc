@@ -9,7 +9,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "x-like-digest"
+      "database_name": "x-like-digest",
+      "migrations_dir": "../../packages/shared/migrations"
     }
   ],
   "services": [

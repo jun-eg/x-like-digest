@@ -7,6 +7,7 @@
       "**/*.{ts,mts,cts,tsx,js,mjs,cjs,jsx,json,jsonc}",
       "!**/worker-configuration.d.ts",
       "!**/package-lock.json",
+      "!packages/shared/migrations",
       "!.claude/skills/wrangler",
       "!.claude/skills/workers-best-practices",
       "!.claude/settings.local.json",

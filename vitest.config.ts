@@ -1,4 +1,4 @@
-import { cloudflareTest } from "@cloudflare/vitest-plugin";
+import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
 import { build } from "esbuild";
 import { defineConfig } from "vitest/config";
 import {
@@ -38,6 +38,9 @@ async function summarizerWorker() {
 
 type AuxiliaryWorker = Awaited<ReturnType<typeof summarizerWorker>>;
 
+// マイグレーションは本番と同じ SQL を使う。置き場は wrangler.jsonc の migrations_dir と同じ
+const migrations = await readD1Migrations("./packages/shared/migrations");
+
 const worker = (name: string, workers: AuxiliaryWorker[] = []) => ({
   plugins: [
     cloudflareTest({
@@ -47,7 +50,11 @@ const worker = (name: string, workers: AuxiliaryWorker[] = []) => ({
       miniflare: { workers },
     }),
   ],
-  test: { name, include: [`workers/${name}/test/**/*.test.ts`] },
+  test: {
+    name,
+    include: [`workers/${name}/test/**/*.test.ts`],
+    provide: { migrations },
+  },
 });
 
 export default defineConfig({

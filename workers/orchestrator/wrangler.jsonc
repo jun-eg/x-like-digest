@@ -1,0 +1,22 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "x-like-digest-orchestrator",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+  "workers_dev": false,
+  "observability": { "enabled": true },
+  "triggers": { "crons": ["*/10 * * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "x-like-digest"
+    }
+  ],
+  "services": [
+    {
+      "binding": "SUMMARIZER",
+      "service": "x-like-digest-summarizer",
+      "entrypoint": "Summarizer"
+    }
+  ]
+}

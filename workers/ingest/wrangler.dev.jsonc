@@ -1,0 +1,16 @@
+{
+  // npm run dev 専用。AI のバインディングは local 開発に対応せず、リモート接続にはログインが要る（ログインは #15）ので、
+  // wrangler.jsonc から AI だけを除いて起動する。バインディングは env に引き継がれず、env では名前も変わるため、別の設定ファイルにしている。
+  // wrangler.jsonc を変えたらここも合わせる
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "x-like-digest-ingest",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "x-like-digest"
+    }
+  ]
+}

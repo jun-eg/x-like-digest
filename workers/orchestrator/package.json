@@ -1,0 +1,10 @@
+{
+  "name": "@x-like-digest/orchestrator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "types": "wrangler types",
+    "check": "tsc -p .",
+    "deploy": "wrangler deploy"
+  }
+}

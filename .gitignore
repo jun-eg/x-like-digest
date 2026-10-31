@@ -12,3 +12,11 @@ client_secret*.json
 
 # guard-bash の検査を回すと Python が作る
 __pycache__/
+
+# 依存と生成物・wrangler の手元の状態・手元の秘密（.dev.vars は wrangler dev の秘密）
+node_modules/
+dist/
+.wrangler/
+.dev.vars*
+!.dev.vars.example
+.cloudflare/

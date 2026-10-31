@@ -19,6 +19,7 @@ test('通る形 — 普通のファイルと、空の雛形 .env.example', () =>
     scan([
       { path: 'src/a.ts', text: 'const x = 1' },
       { path: '.env.example', text: 'API_TOKEN=\n' },
+      { path: 'workers/ingest/.dev.vars.example', text: 'IFTTT_SECRET=\n' },
       { path: 'docs/a.md', text: '`refresh_token` は書かない。ghp_ で始まるものは貼らない' },
     ]),
     [],
@@ -26,7 +27,7 @@ test('通る形 — 普通のファイルと、空の雛形 .env.example', () =>
 })
 
 test('止まる形 — 名前', () => {
-  for (const name of ['.env', '.env.local', '.clasprc.json', 'creds.json', 'x/my-creds.json', 'client_secret_1.json']) {
+  for (const name of ['.env', '.env.local', '.dev.vars', '.dev.vars.staging', 'workers/ingest/.dev.vars', '.clasprc.json', 'creds.json', 'x/my-creds.json', 'client_secret_1.json']) {
     assert.equal(scan([{ path: name, text: '' }]).length, 1, name)
   }
 })

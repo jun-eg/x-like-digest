@@ -4,11 +4,11 @@
 //   使い方: node scripts/秘密の検査.mjs        （ステージされた物を見る。.githooks/pre-commit が回す）
 //
 // 見るものは 2 つある。
-//   ① 名前 — .env ・ .clasprc.json ・ creds.json ・ *-creds.json ・ client_secret*.json（.env.example は空の雛形なので通す）。
+//   ① 名前 — .env ・ .dev.vars（wrangler dev の秘密。.dev.vars.* も）・ .clasprc.json ・ creds.json ・ *-creds.json ・ client_secret*.json（.env.example は空の雛形なので通す）。
 //      .gitignore が名指しして git add を拒むが、git add -f で入るので、ここでも止める
 //   ② 中身 — GitHub・AWS・Anthropic・Google のトークンや鍵の形、秘密鍵、
 //      JSON の "refresh_token" "access_token" "client_secret" "private_key" に値が付いた形、
-//      そして手元の .env（リポジトリの直下）に書いてある値そのもの
+//      そして手元の .env（リポジトリの直下）と .dev.vars（直下と workers/ の各 Worker）に書いてある値そのもの
 //
 // 止まったら、どのファイルの何に当たったかだけを出す。一致した値そのものは出さない。
 
@@ -17,7 +17,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const forbiddenNames = [/^\.env$/, /^\.env\.(?!example$).+$/, /^\.clasprc\.json$/, /^creds\.json$/, /-creds\.json$/, /^client_secret.*\.json$/]
+const forbiddenNames = [/^\.env$/, /^\.env\.(?!example$).+$/, /^\.dev\.vars$/, /^\.dev\.vars\.(?!example$).+$/, /^\.clasprc\.json$/, /^creds\.json$/, /-creds\.json$/, /^client_secret.*\.json$/]
 
 const contentPatterns = [
   ['GitHub のトークンの形', /\b(gh[pousr]_[0-9A-Za-z]{30,}|github_pat_[0-9A-Za-z_]{30,})/],
@@ -76,9 +76,18 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const buffer = execFileSync('git', ['show', `:${name}`], { maxBuffer: 256 * 1024 * 1024 })
     return { path: name, text: buffer.includes(0) ? '' : buffer.toString('utf8') }
   })
-  // .env を別の置き場から読む道具を足したら、その置き場もここに並べる
-  const envFile = [path.join(root, '.env')].find((file) => fs.existsSync(file))
-  const known = envFile ? knownValues(fs.readFileSync(envFile, 'utf8')) : []
+  // .env と .dev.vars は同じ KEY=VALUE の形。別の置き場から読む道具を足したら、その置き場もここに並べる
+  const dirs = [root]
+  const workersDir = path.join(root, 'workers')
+  if (fs.existsSync(workersDir)) {
+    for (const entry of fs.readdirSync(workersDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) dirs.push(path.join(workersDir, entry.name))
+    }
+  }
+  const envFiles = dirs
+    .flatMap((dir) => fs.readdirSync(dir).filter((n) => /^\.(env|dev\.vars)(\..+)?$/.test(n) && !n.endsWith('.example')).map((n) => path.join(dir, n)))
+    .filter((file) => fs.statSync(file).isFile())
+  const known = envFiles.flatMap((file) => knownValues(fs.readFileSync(file, 'utf8')))
   const problems = scan(files, known)
   if (problems.length > 0) {
     console.error('秘密の検査: commit を止めた。トークン・鍵・.env の値は commit しない（→ scripts/README.md）')

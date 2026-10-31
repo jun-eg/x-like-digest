@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "x-like-digest-ingest",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+  "observability": { "enabled": true },
+  "ai": { "binding": "AI" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "x-like-digest"
+    }
+  ]
+}

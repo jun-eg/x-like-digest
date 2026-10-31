@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: 57e72e9eabd66499e28c43ecc6a6ac92fbe42eaf
+source-hash: e07f198c35dc1987f18175416e6bde80808dc0c1
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト
@@ -27,7 +27,7 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 - GitHub の内容一致は Git blob SHA-1 を手元で計算して応答の sha と比べる
 - 要約の形式検証は 4 つ。本文がある、見出し 4 本が順にある、空白を除いた文字数が 1,000〜1,300、本文中の X の URL がすべてバッチの投稿のもの
 - 言語は TypeScript。Web フレームワークは入れない。公開する口が 1 本で、B は Cron、C は RPC で動くので、ルーティングもミドルウェアも要らない
-- D1 は Drizzle で操作し、行の型はスキーマから出す。外から入る値は境界で zod で確かめ、型は z.infer から出す。as による読み替えは使わない。Service Binding は RPC、Claude は公式 SDK でツール無し、検査は vitest の Workers プール
+- D1 は Drizzle で操作し、行の型はスキーマから出す。外から入る値は境界で zod で確かめ、型は z.infer から出す。as による読み替えは使わない。Service Binding は RPC、Claude は公式 SDK でツール無し、検査は vitest と Workers プール（`@cloudflare/vitest-plugin`。旧名の vitest-pool-workers は非推奨）
 
 ## 完了の測り方
 

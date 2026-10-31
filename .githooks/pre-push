@@ -2,6 +2,7 @@
 # pre-push — push の前に、検査を消す・緩める差分を subagent（test-diff-reviewer）に読ませる。
 #
 # 有効にする: git config core.hooksPath .githooks（手順は CONTRIBUTING.md）
+# claude は ANTHROPIC_API_KEY を外して claude.ai のログインで動かす（手元のキーに依らない）。事前に claude でログインしておく。
 # 検査ファイル・検査を弱める設定に差分が無い push は、claude を呼ばずに通す。
 # 止まったときの抜け道は `git push --no-verify` だけ（人だけが使う。Claude には guard-bash が打たせない）。
 # 環境変数での skip は置かない（Claude が設定できてしまう）。CI では回さない（CI に鍵を置かない）。
@@ -67,7 +68,8 @@ $(git diff --name-only "$range" -- $ALWAYS_PATHS)"
   prompt="差分の範囲は $range。検査に関わる差分があるファイル:
 $files
 この範囲で、検査を消した・緩めた変更に根拠があるかを判定して。1 行目は「判定: 通す」か「判定: 止める」。"
-  out=$(claude -p --agent test-diff-reviewer \
+  # ANTHROPIC_API_KEY が残ると claude.ai のログインより優先され、無効なキーだと Invalid API key で push が止まる
+  out=$(env -u ANTHROPIC_API_KEY claude -p --agent test-diff-reviewer \
     --permission-mode dontAsk \
     --allowedTools "Read Grep Glob Bash(git diff:*) Bash(git log:*) Bash(git show:*) Bash(gh issue view:*)" \
     --disallowedTools "Edit Write NotebookEdit" \

@@ -4,7 +4,7 @@
 # 有効にする: git config core.hooksPath .githooks（手順は CONTRIBUTING.md）
 # 止まったときの直し方は docs/README.md の「古さの check」。
 # 秘密の検査は、トークン・鍵・手元の .env の値の混ざりを止める（→ scripts/README.md）。
-# コードを置いたら、lint・型・テストもここに足す（CI の job と同じ順にする）。
+# 型・lint・テストは npm run check → npm test の順で、CI の job「コードの検査」と同じ順にする。
 
 set -e
 cd "$(git rev-parse --show-toplevel)"
@@ -12,3 +12,5 @@ cd "$(git rev-parse --show-toplevel)"
 node scripts/秘密の検査.mjs
 node scripts/リンクの検査.mjs
 node scripts/要約の検査.mjs
+npm run check
+npm test

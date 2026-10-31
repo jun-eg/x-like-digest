@@ -1,5 +1,4 @@
-# CI — PR と main への push で、repo の文書の検査と、柵（hook・検査の手）の検査を回す。
-# コードを置いたら、型・lint・テスト・ビルドの job をここに足す。
+# CI — PR と main への push で、repo の文書の検査と、柵（hook・検査の手）の検査と、コードの検査（lint・型・テスト）を回す。
 # job 名（name:）はブランチ保護の必須ステータスに名指しされる。変えるときは保護の設定も直す。
 name: ci
 
@@ -34,3 +33,17 @@ jobs:
         run: python3 .claude/hooks/guard-bash.test.py
       - name: scripts/ の検査（秘密の検査など）
         run: node --test "scripts/**/*.test.mjs"
+
+  code:
+    name: コードの検査（lint・型・テスト）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      - run: npm ci
+      - name: lint と型検査
+        run: npm run check
+      - name: テスト
+        run: npm test

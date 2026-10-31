@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: 11280cd88d905b48766a1117bbd9e1fa6c2fe17d
+source-hash: 06a827564c8587c9ec7e8afd8ae2d25251c68458
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト
@@ -26,7 +26,8 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 - 次に試す時刻はジョブが持つ。1〜6 回目は開始 + 10 分 × 回数、7 回目以降は 60 分おき、期限は翌日 09:00 UTC
 - GitHub の内容一致は Git blob SHA-1 を手元で計算して応答の sha と比べる
 - 要約の形式検証は 4 つ。本文がある、見出し 4 本が順にある、空白を除いた文字数が 1,000〜1,300、本文中の X の URL がすべてバッチの投稿のもの
-- Service Binding は RPC、検証は zod、Claude は公式 SDK でツール無し、検査は vitest の Workers プール
+- 言語は TypeScript。Web フレームワークは入れない。公開する口が 1 本で、B は Cron、C は RPC で動くので、ルーティングもミドルウェアも要らない
+- D1 は Drizzle で操作し、行の型はスキーマから出す。外から入る値は境界で zod で確かめ、型は z.infer から出す。as による読み替えは使わない。Service Binding は RPC、Claude は公式 SDK でツール無し、検査は vitest の Workers プール
 
 ## 完了の測り方
 

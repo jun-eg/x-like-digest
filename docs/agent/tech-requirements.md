@@ -223,6 +223,10 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | 7 | 文字数の数え方 | 空白と改行を除いた Unicode コードポイント数 | 「約 1,000〜1,300 字」を判定できる 1 つの定義にする。Markdown の記号は含める | 書記素で数える: 日本語では差が出ず、実装が重い。バイト数: 日本語で 3 倍になり目安と対応しない |
 | 8 | 検査 | vitest と `@cloudflare/vitest-pool-workers`。外部（Jev、Claude、GitHub、IFTTT）は差し替える | Workers の実行環境で D1 と Service Binding を含めて動かせる。5 の判定の大半が「差し替えて回数を数える」で書ける | 実 API を叩く検査: 費用が掛かり、日付と状態に依存して再現しない |
 | 9 | 秘密の投入 | `wrangler secret put` | ファイルに残らない。`.gitignore` と秘密の検査が二重に止める | `.dev.vars` を本番にも使う: 誤って commit する経路が残る |
+| 10 | 言語 | TypeScript | Workers の標準の言語で、wrangler・Service Binding の RPC・D1 のバインディングに型が付く。3 Worker で共有する型を 1 か所に置ける | JavaScript: 境界で確かめた値の型が後段に伝わらず、5 の仕様の判定が弱くなる |
+| 11 | Web フレームワーク | 入れない。Workers 標準の `fetch` ハンドラと `Request` / `Response` で書く | 公開する口が Worker A の `POST /webhooks/x-like` 1 本で、B は Cron、C は RPC で動く。ルーティングは if 文 1 つで済み、ミドルウェアで共通化するルートが無い。依存と CPU 10 ms の中の層を増やす理由が無い | Hono: 軽いが、得るもの（複数ルートの振り分け、ミドルウェア、静的配信、CORS）はどれも公開面を広げる方向で、Design Doc 6 のスコープ外に当たる。公開パスが 3 本以上になるか、複数ルートに共通で認証やログを掛けたくなったら、この行に戻って入れ直す |
+| 12 | D1 の操作 | Drizzle。スキーマを TypeScript で書き、drizzle-kit が生成したマイグレーション SQL を wrangler で D1 に流す | 行の型がスキーマから出るので、列名の誤りが型検査で止まる。バッチ確定（5-8）と状態の条件付き更新（5-10）は SQL 1 文で書きたいが、Drizzle のクエリビルダはその形で書ける。軽く、CPU 10 ms にほぼ響かない | 素の SQL: `all<Post>()` のように手で書いた型への読み替えになり、列名を誤っても型検査を通る。テーブルの形を SQL と型の 2 か所に持つ。Prisma: クエリエンジンが重く、Workers Free の CPU とバンドルの大きさに不利で、2 テーブルには過剰 |
+| 13 | 外から入る値の型 | 境界で zod で確かめ、型は `z.infer` から出す。D1 の行は Drizzle のスキーマから出す。`as` による読み替えと手で書いた型の重ね合わせを使わない | 型が 1 か所から出るので、形が変わったときに直す場所が 1 つになる。境界は IFTTT の受信 JSON、Jev の応答、GitHub の応答の 3 つ。Claude の応答は SDK の型と 5-13 の形式検証で受ける。Worker B と C の間は共有する TypeScript の型だけで、同じアカウント内なので実行時の検査は足さない | drizzle-zod で D1 のスキーマから受信 JSON の zod を生成する: 受信 JSON と D1 の行は形が違う（`created_at` と `source_created_at`、`post_id` は URL から作る）ので、1 つの定義から両方を出すと無理が出る |
 
 ## 7. 検証と完了の測り方
 

@@ -36,7 +36,7 @@ it("jobs のジョブ ID の重複を拒む", async () => {
 });
 
 it("存在しない状態名を拒む", async () => {
-  const bad = { ...job, job_id: "2026-11-01", status: "DONE" };
+  const bad = { ...job, job_id: "2026-11-01", status: "DONE" as const };
   // @ts-expect-error 4-3 に無い状態名は型検査で止まる
   const insert = db.insert(jobs).values(bad);
   await expect(insert).rejects.toThrow();

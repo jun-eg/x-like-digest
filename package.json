@@ -7,14 +7,14 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "wrangler dev -c workers/ingest/wrangler.dev.jsonc -c workers/orchestrator/wrangler.jsonc -c workers/summarizer/wrangler.jsonc",
+    "dev": "wrangler dev -c workers/ingest/wrangler.jsonc -c workers/orchestrator/wrangler.jsonc -c workers/summarizer/wrangler.jsonc",
     "types": "npm run types --workspaces --if-present",
     "lint": "biome check .",
     "format": "biome check --write .",
     "check": "npm run lint && npm run check --workspaces --if-present",
     "test": "vitest run",
     "db:generate": "npm run db:generate -w @x-like-digest/shared",
-    "db:migrate:local": "wrangler d1 migrations apply DB --local -c workers/ingest/wrangler.dev.jsonc",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local -c workers/ingest/wrangler.jsonc",
     "deploy": "npm run deploy --workspaces --if-present"
   },
   "devDependencies": {

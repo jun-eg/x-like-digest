@@ -4,11 +4,12 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-30",
   "observability": { "enabled": true },
-  "ai": { "binding": "AI" },
+  "ai": { "binding": "AI", "remote": true },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "x-like-digest",
+      "database_id": "6e69ba2f-5fde-43d4-ac47-38a9939f61a9",
       "migrations_dir": "../../packages/shared/migrations"
     }
   ]

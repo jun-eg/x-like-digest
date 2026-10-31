@@ -221,7 +221,7 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | 5 | Claude の呼び出し | `@anthropic-ai/sdk` の Messages API、ツール無し | Workers の fetch で動き、型が付く。`tools` を渡さないことをコードで示せる | 生 fetch: 応答の型を自分で書く |
 | 6 | GitHub の内容一致 | Git blob SHA-1 を Worker 側で計算し、GET の `sha` と比べる | 本文を Base64 から戻して比較するより短く、既存ファイルの SHA 取得と同じ値で照合できる。CPU も小さい | 本文の文字列比較: Base64 の復号が要り、改行の揺れで偽の不一致が出る |
 | 7 | 文字数の数え方 | 空白と改行を除いた Unicode コードポイント数 | 「約 1,000〜1,300 字」を判定できる 1 つの定義にする。Markdown の記号は含める | 書記素で数える: 日本語では差が出ず、実装が重い。バイト数: 日本語で 3 倍になり目安と対応しない |
-| 8 | 検査 | vitest と `@cloudflare/vitest-pool-workers`。外部（Jev、Claude、GitHub、IFTTT）は差し替える | Workers の実行環境で D1 と Service Binding を含めて動かせる。5 の判定の大半が「差し替えて回数を数える」で書ける | 実 API を叩く検査: 費用が掛かり、日付と状態に依存して再現しない |
+| 8 | 検査 | vitest と `@cloudflare/vitest-plugin`。外部（Jev、Claude、GitHub、IFTTT）は差し替える | Workers の実行環境で D1 と Service Binding を含めて動かせる。5 の判定の大半が「差し替えて回数を数える」で書ける | 実 API を叩く検査: 費用が掛かり、日付と状態に依存して再現しない。改名前の旧パッケージ: npm で非推奨（`vitest-plugin` に改名済みで更新されない）。同梱の wrangler が 4.124 で、ルートの 4.156 と `compatibility_date` 2026-10-30 に対して古い |
 | 9 | 秘密の投入 | `wrangler secret put` | ファイルに残らない。`.gitignore` と秘密の検査が二重に止める | `.dev.vars` を本番にも使う: 誤って commit する経路が残る |
 | 10 | 言語 | TypeScript | Workers の標準の言語で、wrangler・Service Binding の RPC・D1 のバインディングに型が付く。3 Worker で共有する型を 1 か所に置ける | JavaScript: 境界で確かめた値の型が後段に伝わらず、5 の仕様の判定が弱くなる |
 | 11 | Web フレームワーク | 入れない。Workers 標準の `fetch` ハンドラと `Request` / `Response` で書く | 公開する口が Worker A の `POST /webhooks/x-like` 1 本で、B は Cron、C は RPC で動く。ルーティングは if 文 1 つで済み、ミドルウェアで共通化するルートが無い。依存と CPU 10 ms の中の層を増やす理由が無い | Hono: 軽いが、得るもの（複数ルートの振り分け、ミドルウェア、静的配信、CORS）はどれも公開面を広げる方向で、Design Doc 6 のスコープ外に当たる。公開パスが 3 本以上になるか、複数ルートに共通で認証やログを掛けたくなったら、この行に戻って入れ直す |
@@ -299,3 +299,4 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
+| 2026-11-01 | 6-8 の検査のパッケージを `@cloudflare/vitest-plugin` に変更 | [ADR tech-requirements-0001](ADR/tech-requirements/0001-vitest-plugin.md) |

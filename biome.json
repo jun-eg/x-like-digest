@@ -1,0 +1,26 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**/*.{ts,mts,cts,tsx,js,mjs,cjs,jsx,json,jsonc}",
+      "!**/worker-configuration.d.ts",
+      "!**/package-lock.json",
+      "!.claude/skills/wrangler",
+      "!.claude/skills/workers-best-practices",
+      "!.claude/settings.local.json",
+      "!scripts/*.mjs",
+      "!.claude/hooks"
+    ]
+  },
+  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "suspicious": { "noExplicitAny": "error" }
+    }
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+}

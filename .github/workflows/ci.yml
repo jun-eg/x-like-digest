@@ -50,7 +50,7 @@ jobs:
         run: npm test
       # 権限分離（tech-requirements 5-25・5-26・5-29 の (a)）。secret は wrangler.jsonc に出ないので (b) の `wrangler secret list` は人が手元で見る。
       # BINDINGS は wrangler の config-schema.json のバインディングのキー。wrangler が増やしたら足す。行頭 // の行は数えない。
-      - name: 権限分離（3 Worker のバインディング）
+      - name: 権限分離（3 Worker のバインディング・Cron・認証用 D1）
         run: |
           BINDINGS="d1_databases ai services kv_namespaces r2_buckets queues durable_objects vectorize hyperdrive browser workflows send_email analytics_engine_datasets dispatch_namespaces mtls_certificates images media stream version_metadata secrets_store_secrets ai_search ai_search_namespaces agent_memory pipelines artifacts flagship ratelimits worker_loaders vpc_services vpc_networks unsafe_hello_world unsafe analytics k2 logfwdr assets env previews exports"
           fail=0
@@ -72,4 +72,22 @@ jobs:
           check summarizer 5-25 "" ""
           check orchestrator 5-26 "" "d1_databases services"
           check ingest 5-29 "d1_databases ai" "d1_databases ai"
+          # d1_databases の本数と名前（5-26(a)・5-29(a)）。認証用の D1 は ingest だけに結ぶ（9-11）。キーの有無だけでは AUTH_DB を B に足しても通る
+          flat() { grep -Ev '^[[:space:]]*//' "workers/$1/wrangler.jsonc" | tr -d '\n'; }
+          d1names() { grep -Ev '^[[:space:]]*//' "workers/$1/wrangler.jsonc" | grep -Eo '"database_name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*"([^"]*)"$/\1/' | sort | tr '\n' ' '; }
+          want() { if [ "$(d1names "$1")" != "$2" ]; then echo "::error file=workers/$1/wrangler.jsonc::$1 の d1_databases の database_name が [$(d1names "$1")] で、[$2] ではない（$3）"; fail=1; fi; }
+          want ingest "x-like-digest x-like-digest-auth " 5-29
+          want orchestrator "x-like-digest " 5-26
+          want summarizer "" 5-25
+          if ! flat ingest | grep -Eq '"binding"[[:space:]]*:[[:space:]]*"AUTH_DB"'; then echo "::error file=workers/ingest/wrangler.jsonc::ingest に AUTH_DB が結ばれていない（5-29）"; fail=1; fi
+          for w in orchestrator summarizer; do
+            if flat "$w" | grep -Eq 'AUTH_DB|x-like-digest-auth'; then echo "::error file=workers/$w/wrangler.jsonc::$w に認証用の D1（AUTH_DB）がある（5-25・5-26）"; fail=1; fi
+          done
+          # 5-1: Cron は 0 * * * * の 1 本、workers.dev は無効
+          if ! flat ingest | grep -Eq '"crons"[[:space:]]*:[[:space:]]*\[[[:space:]]*"0 \* \* \* \*"[[:space:]]*\]'; then echo "::error file=workers/ingest/wrangler.jsonc::ingest の triggers.crons が [\"0 * * * *\"] の 1 本ではない（5-1）"; fail=1; fi
+          if ! flat ingest | grep -Eq '"workers_dev"[[:space:]]*:[[:space:]]*false'; then echo "::error file=workers/ingest/wrangler.jsonc::ingest に workers_dev: false が無い（5-1）"; fail=1; fi
+          # 5-29: X の ID と secret の名前を wrangler.jsonc（vars）に書かない。公開リポジトリに載る
+          for w in ingest orchestrator summarizer; do
+            if flat "$w" | grep -Eq 'X_REFRESH_TOKEN|X_CLIENT_ID|X_USER_ID'; then echo "::error file=workers/$w/wrangler.jsonc::$w の wrangler.jsonc に X の認証情報の名前がある（5-29）"; fail=1; fi
+          done
           exit $fail

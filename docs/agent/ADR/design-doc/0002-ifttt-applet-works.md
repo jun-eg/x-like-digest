@@ -19,6 +19,6 @@ IFTTT Free の「New liked tweet by you」から Webhook を送る Applet が成
 
 ## 影響
 
-- 6 節の△を【確定】に書き換え、制約と、判定 1 の「1 行」が IT 系 2 件で 2 行になった点を記録した
+- 6 節の△を【確定】に書き換え、制約と、判定 1 が IT 系 2 件 = 2 行で合格した点を記録した
 - 確かめていないこと（IFTTT 自身の再送、credit の残りと補充周期）は残る
 - Applet の Body の細部は技術の要件定義 4-1・9-8（ADR tech-requirements-0006）

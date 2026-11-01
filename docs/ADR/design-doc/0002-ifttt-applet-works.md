@@ -1,6 +1,6 @@
 ---
 source: agent/ADR/design-doc/0002-ifttt-applet-works.md
-source-hash: 529ffbbfd558a4c2383eae23677d9cf40628731c
+source-hash: 44d774fa6f1e93a094724ae556ceec7ad753afbd
 ---
 
 # ADR design-doc-0002 の要約: IFTTT Free の Applet が実機で成立すると分かった

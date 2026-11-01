@@ -78,8 +78,8 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | --- | --- | --- |
 | 実行環境 | Cloudflare Workers（Free）3 本、D1（Free）1 本、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`）。Jev は Workers AI のモデルではなく、支払いは Cloudflare のクレジットに一括する。常駐プロセスを持たない | Design Doc 1・5「固定費 $0、自宅サーバー無し」 |
 | 公開面 | Worker A の `POST /webhooks/x-like` だけ。Worker B・C は公開ルートも `workers.dev` も無効 | 6「入口」「権限分離」 |
-| 秘密の置き場 | IFTTT の共有シークレットは Worker A、GitHub トークンは Worker B、Claude API キーは Worker C に、それぞれ Cloudflare Secret として置く。1 つの Worker に 2 つ以上置かない | 6「権限分離」 |
-| セットアップに要求するもの | Node（`.node-version` の版）、wrangler、Cloudflare・IFTTT・GitHub・Claude API の各アカウント。IFTTT の Applet と GitHub のリポジトリ・トークンは利用者が導入時に作る | 6「前提にしている『すでにあるもの』」 |
+| 秘密の置き場 | IFTTT の共有シークレットは Worker A、GitHub トークンは Worker B、Claude API キーは Worker C に、それぞれ Cloudflare Secret として置く。名前は順に `IFTTT_SECRET`、`GITHUB_TOKEN`、`ANTHROPIC_API_KEY`。1 つの Worker に 2 つ以上置かない | 6「権限分離」 |
+| セットアップに要求するもの | Node（`.node-version` の版）、wrangler、Cloudflare・IFTTT・GitHub・Claude API の各アカウント。Cloudflare アカウントの `workers.dev` サブドメイン（ダッシュボードで登録する。CLI だけではできず、未登録だと deploy が通らない）。IFTTT の Applet と GitHub のリポジトリ・トークンは利用者が導入時に作る | 6「前提にしている『すでにあるもの』」 |
 | コードの置き場 | このリポジトリ 1 本。`workers/ingest`、`workers/orchestrator`、`workers/summarizer` の 3 プロジェクト | 6「権限分離」（→ 6-2） |
 | 投稿本文が通る経路 | X → IFTTT → Worker A → AI Gateway（Jev）→ D1 → Worker B → Worker C → Claude API。保存されるのは D1（要約まで）と GitHub（ダイジェストのみ）。ログには通さない | 6「運用」、Design Doc 5「原文全文を残す」の却下 |
 | 時刻 | 内部は UTC で持つ。JST への変換はバッチの日付（ファイル名とジョブ ID）を決めるときだけ行う | 3-2、3-3 |
@@ -291,7 +291,7 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | 3 | 1 バッチの入力上限。Claude の文脈長と、何件を超えたら失敗扱いにするか | Fable 5.1 の入力上限と、1 投稿あたりの平均トークン数の実測 | この文書 |
 | 4 | 文字数 1,000〜1,300 に収めるプロンプトの実体 | 実機で数回生成した結果の文字数分布 | この文書 |
 | 5 | Workers Free の CPU 10 ms に、本処理と保存が収まるか | 判定 5 の実測 | この文書 |
-| 6 | GitHub の保存先 `owner/repo`、ブランチ、トークンの発行方式 | 利用者が導入時に決める | この文書 |
+| 6 | 【確定 2026-11-01】GitHub の保存先 `owner/repo`、ブランチ、トークンの発行方式。下の「9-6 の確定内容」 | 人の決定 | この文書 |
 | 7 | Jev と Claude の 1 日あたりの実費 | 判定 5 の請求 | この文書 |
 | 8 | IFTTT の Ingredient を JSON に差し込むときのエスケープ挙動と、Webhook の応答制限 12 秒の中で Jev と D1 保存が終わるか | 作業 4 の実機確認 | この文書（成立しない場合は上流の △ に戻る） |
 
@@ -306,9 +306,17 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 - `noul` は true である確率。実機の値は、IT の投稿（Workers と D1）0.99、Rust の借用チェッカー 0.99、学園祭のたこ焼き 0.01。閾値は `noul >= 0.6` なら保存、未満なら捨てる。0.6 付近の投稿は今回見ておらず、閾値の実測は 9-1 のまま
 - 1 件の使用量は入力約 360 トークン（質問の分を含む）、出力 21 トークンで、docs の単価（入力 1M トークンあたり $0.042）なら 1 件あたり約 $0.000015
 
+### 9-6 の確定内容
+
+人の決定（2026-11-01）。
+
+- 保存先は `jun-eg/my-bias`（非公開リポジトリ、既定ブランチ `main`）。保存するブランチも `main`
+- トークンは fine-grained personal access token。対象リポジトリを `jun-eg/my-bias` だけに限り、権限は Contents の Read and write だけ（fine-grained PAT なので Metadata の Read-only が必ず付く。4-4 の表 6「対象リポジトリに限定した Contents の書込」）。Worker B の `GITHUB_TOKEN` に置く
+
 ## 更新ログ
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
+| 2026-11-01 | 9-6 を確定（保存先・トークンの範囲）、2 節に secret 名と workers.dev サブドメイン | [ADR tech-requirements-0003](ADR/tech-requirements/0003-github-destination-and-secrets.md) |
 | 2026-11-01 | 2 節の実行環境と経路の Jev を、Workers AI のモデルから AI Gateway 経由の TypeSafe Jev に変更。9-2 を確定 | [ADR tech-requirements-0002](ADR/tech-requirements/0002-jev-via-ai-gateway.md) |
 | 2026-11-01 | 6-8 の検査のパッケージを `@cloudflare/vitest-plugin` に変更 | [ADR tech-requirements-0001](ADR/tech-requirements/0001-vitest-plugin.md) |

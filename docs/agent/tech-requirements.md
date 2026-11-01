@@ -78,8 +78,8 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | --- | --- | --- |
 | 実行環境 | Cloudflare Workers（Free）3 本、D1（Free）2 本（投稿とジョブの `x-like-digest` と、X の refresh token だけを持つ `x-like-digest-auth`。後者は Worker A だけに結ぶ）、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`）。Jev は Workers AI のモデルではなく、支払いは Cloudflare のクレジットに一括する。X の API は従量課金で、固定費ではなく変動費に入る（Design Doc 1）。常駐プロセスを持たない | Design Doc 1・5「固定費 $0、自宅サーバー無し」 |
 | 公開面 | どの Worker にも無い。Worker A は Cron で X の API を取りに行くので、受ける口を持たない。B は Cron、C は Service Binding の RPC で動く。公開ルートも `workers.dev` も無効 | 6「入口」「権限分離」 |
-| 秘密の置き場 | X の OAuth 2.0 の refresh token は Worker A、GitHub トークンは Worker B、Claude API キーは Worker C に、それぞれ Cloudflare Secret として置く。名前は順に `X_REFRESH_TOKEN`、`GITHUB_TOKEN`、`ANTHROPIC_API_KEY`。1 つの Worker に 2 つ以上置かない。X のアプリは公開クライアントで client secret は要らず、クライアント ID と利用者の user id は秘密ではないので `vars` に置く。refresh token は更新のたびに替わり、Worker は自分の Secret を書き換えられないので、最新の値は認証用の D1 `x-like-digest-auth` の `x_auth`（4-2）に置き、Secret は初期値と作り直しの種にだけ使う。認証用の D1 は Worker A だけに結び、B は読めない（9-11） | 6「権限分離」 |
-| Worker ごとの持ち物 | A（ingest）は secret `X_REFRESH_TOKEN`、AI バインディング（`AI`、`remote: true`）と `vars` の `AI_GATEWAY_ID`・`X_CLIENT_ID`・`X_USER_ID`（どれも秘密ではない）、D1（`DB`）と認証用の D1（`AUTH_DB`）、Cron Trigger（`0 * * * *`）。B（orchestrator）は secret `GITHUB_TOKEN`、D1、Service Binding（`SUMMARIZER`）。C（summarizer）は secret `ANTHROPIC_API_KEY` だけで、バインディングを持たない。secret は `wrangler secret put` で入り、`wrangler.jsonc` に出ないので、設定ファイルで見えるのは D1・AI・services のバインディングだけである | 6「権限分離」 |
+| 秘密の置き場 | X の OAuth 2.0 の refresh token は Worker A、GitHub トークンは Worker B、Claude API キーは Worker C に、それぞれ Cloudflare Secret として置く。各 Worker は自分の外部サービスの認証情報だけを持つ。A は X の 3 本（`X_REFRESH_TOKEN`、`X_CLIENT_ID`、`X_USER_ID`）、B は `GITHUB_TOKEN`、C は `ANTHROPIC_API_KEY`。X のアプリは公開クライアントで client secret は要らない。クライアント ID と user id は秘密ではないが、`vars` は `wrangler.jsonc` に載り、このリポジトリは公開なので、Secret に置く（利用者の決定 2026-11-02）。refresh token は更新のたびに替わり、Worker は自分の Secret を書き換えられないので、最新の値は認証用の D1 `x-like-digest-auth` の `x_auth`（4-2）に置き、Secret は初期値と作り直しの種にだけ使う。認証用の D1 は Worker A だけに結び、B は読めない（9-11） | 6「権限分離」 |
+| Worker ごとの持ち物 | A（ingest）は secret `X_REFRESH_TOKEN`・`X_CLIENT_ID`・`X_USER_ID`、AI バインディング（`AI`、`remote: true`）と `vars` の `AI_GATEWAY_ID`（秘密ではない）、D1（`DB`）と認証用の D1（`AUTH_DB`）、Cron Trigger（`0 * * * *`）。B（orchestrator）は secret `GITHUB_TOKEN`、D1、Service Binding（`SUMMARIZER`）。C（summarizer）は secret `ANTHROPIC_API_KEY` だけで、バインディングを持たない。secret は `wrangler secret put` で入り、`wrangler.jsonc` に出ないので、設定ファイルで見えるのは D1・AI・services のバインディングだけである | 6「権限分離」 |
 | セットアップに要求するもの | Node（`.node-version` の版）、wrangler、Cloudflare・GitHub・Claude API の各アカウント。Cloudflare アカウントの `workers.dev` サブドメイン（ダッシュボードで登録する。CLI だけではできず、未登録だと deploy が通らない）。X Developer のアカウントと OAuth 2.0 のアプリ（console.x.com の Pay Per Use のプロジェクトの下に Native App として作る。Free のプロジェクトの App は従量課金のクレジットを使えない。scope は `users.read like.read tweet.read offline.access`。9-11）、API のクレジットの購入（カード登録が要る）、GitHub のリポジトリ・トークンは利用者が導入時に用意する。最初の refresh token は認可コードフローを手元で 1 回通して得る（9-11） | 6「前提にしている『すでにあるもの』」 |
 | コードの置き場 | このリポジトリ 1 本。`workers/ingest`、`workers/orchestrator`、`workers/summarizer` の 3 プロジェクト | 6「権限分離」（→ 6-2） |
 | 投稿本文が通る経路 | X の API → Worker A → AI Gateway（Jev）→ （IT 系だけ）oEmbed → D1 → Worker B → Worker C → Claude API。oEmbed に渡すのは投稿の URL だけで、本文は渡さない。保存されるのは D1（要約まで）と GitHub（ダイジェストのみ）。ログには通さない | 6「運用」、Design Doc 5「原文全文を残す」の却下 |
@@ -134,7 +134,7 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 
 要件定義書の FR-02 のうち、Webhook の受信の HTTP（Body の上限 16 KiB、Content-Type、想定外フィールドの拒否、応答コード）は、入口が X の API になって当てはまらない。要件定義書はリポジトリに無い一次記録なので、そこは直さず、この文書で受けない（5-1〜5-3）。
 
-X の API は、本人の `GET /2/users/{id}/liked_tweets` を `max_results=5`・`tweet.fields=created_at,entities` で新しい順に取る（`{id}` は `vars` の `X_USER_ID`。`/2/users/me` は引かない。9-11）。ページ内に覚えた `post_id`（4-2）が無ければ次のページも取り、最大 10 ページ（50 件）で上限に当たる。上限に当たった回は何も扱わず、定期の取得を止める。覚えが空の初回は 1 ページを覚えるだけで、取り込まない（9-13。Design Doc 6「入口」はその 9-13 を指している）。投稿者名は Jev が IT 系と判定した投稿だけ、無認証の oEmbed（`https://publish.x.com/oembed?url=...`）で引く。リンクは取得した応答の `entities` から取るので、oEmbed には頼らない（9-12）。API の expansions は使わない（利用者情報は 1 件 $0.01 で、投稿の 10 倍かかる）。
+X の API は、本人の `GET /2/users/{id}/liked_tweets` を `max_results=5`・`tweet.fields=created_at,entities` で新しい順に取る（`{id}` は Secret の `X_USER_ID`。`/2/users/me` は引かない。9-11）。ページ内に覚えた `post_id`（4-2）が無ければ次のページも取り、最大 10 ページ（50 件）で上限に当たる。上限に当たった回は何も扱わず、定期の取得を止める。覚えが空の初回は 1 ページを覚えるだけで、取り込まない（9-13。Design Doc 6「入口」はその 9-13 を指している）。投稿者名は Jev が IT 系と判定した投稿だけ、無認証の oEmbed（`https://publish.x.com/oembed?url=...`）で引く。リンクは取得した応答の `entities` から取るので、oEmbed には頼らない（9-12）。API の expansions は使わない（利用者情報は 1 件 $0.01 で、投稿の 10 倍かかる）。
 
 ### 4-2. D1 の投稿（要件定義書 FR-04.2）
 
@@ -158,6 +158,7 @@ X の API は、本人の `GET /2/users/{id}/liked_tweets` を `max_results=5`�
 | 3 | `halted_at` | 日時（UTC） | 任意 | `ingest_state`（1 行だけ）。止める印。NULL でなければ、Worker A は何もせず終える | 9-13 |
 | 4 | `halt_reason` | 文字列 | 任意 | `page_limit`（上限に当たった）か `failed_across_utc_day`（途中の失敗が UTC の日付をまたいだ）。気づいた人が原因を探す手がかり | 9-13 |
 | 5 | `failing_since` | 日時（UTC） | 任意 | 1 ページ目の取得が済んだ後に最後まで済まなかった回が続いているとき、その最初の失敗の時刻。最後まで済んだ回の D1 の batch の中で NULL に戻す | 9-13 |
+| 6 | `auth_failed_at` | 日時（UTC） | 任意 | `ingest_state` の列。認証が通らなくなった印。refresh token が使えない更新の失敗（400・401）か、新しい refresh token の書き込みの失敗が続いた回の、最初の時刻。すでに値があれば変えない。更新が成功して `x_auth` に書けた回に NULL に戻す。止める印ではなく、何も止めない。気づいた人が原因を探す手がかり。通知は作らない | 9-11 |
 
 X の認証の最新の値を持つ表 `x_auth`（1 行だけ）は、投稿の D1 ではなく、別の D1 `x-like-digest-auth`（バインディング `AUTH_DB`）に置く。Worker A だけが結び、読み書きする。Worker B は結ばないので読めない。5-8 の確定と 5-19 の削除は触らない。置き場と列は 9-11 の決定から実装者が起こした（issue #65）。
 
@@ -206,7 +207,7 @@ X の認証の最新の値を持つ表 `x_auth`（1 行だけ）は、投稿の 
 | # | 上流の判断 | 帰結の仕様（観測できる形） | 判定のしかた |
 | --- | --- | --- | --- |
 | 1 | 入口は Worker A が X の API を取りに行く形 | Worker A の Cron Trigger は `0 * * * *` の 1 本。`fetch` ハンドラを持たず、公開ルートも `workers.dev` も無い | wrangler の設定を読み、CI で `grep` する。自動テストで `scheduled` を呼んで取り込みが 1 回走ることを確かめる。起動確認の `GET /` が 200 の検査はこの検査に置き換える（作業 2） |
-| 2 | X の認証は OAuth 2.0 の refresh token | 使う refresh token は、Secret `X_REFRESH_TOKEN` の hash が `x_auth` の `seed_hash` と同じなら `x_auth` の値、`x_auth` が空か hash が違えば Secret の値。`POST https://api.x.com/2/oauth2/token`（`grant_type=refresh_token`、本文に `client_id`。client secret は付けない）で access token（有効 7200 秒。毎回の取得で更新し、保存しない）と新しい refresh token を得て、新しい refresh token を access token を使う前に `x_auth` へ書く。書けなければ X の API を呼ばずに終える。`Authorization: Bearer` を付けて X の API を呼ぶ。トークンの更新が失敗したら（古い refresh token の再使用は 400 `invalid_request`）、その回は `posts` に書かず、Jev も呼ばずに終える。更新と書き込みの失敗では止める印を立てない（9-11）。ログには本文もトークンも出さず、エラー種別だけ | 自動テストで X のトークン更新を 400 と 401 で失敗させ、`posts` の件数と Jev の呼び出し回数が 0 であること、更新が成功した回に新しい refresh token が X の API の呼び出しより前に `x_auth` へ書かれること、`x_auth` の書き込みを失敗させると X の API の呼び出しが 0 回であること、Secret を入れ直す（hash が違う）と Secret の値で更新し、同じ Secret のままなら `x_auth` の値で更新すること、更新の要求に client secret が無いこと、更新と書き込みを失敗させた回で `ingest_state` の `halted_at`・`failing_since` が変わらないことを数える |
+| 2 | X の認証は OAuth 2.0 の refresh token | 使う refresh token は、Secret `X_REFRESH_TOKEN` の hash が `x_auth` の `seed_hash` と同じなら `x_auth` の値、`x_auth` が空か hash が違えば Secret の値。`POST https://api.x.com/2/oauth2/token`（`grant_type=refresh_token`、本文に Secret の `X_CLIENT_ID`。client secret は付けない）で access token（有効 7200 秒。毎回の取得で更新し、保存しない）と新しい refresh token を得て、新しい refresh token を access token を使う前に `x_auth` へ書く。書けなければ 1 秒、2 秒あけて同じ回の中で最大 2 回書き直し（計 3 回）、それでも書けなければ X の API を呼ばずに終える。`Authorization: Bearer` を付けて X の API を呼ぶ。トークンの更新が失敗したら（古い refresh token の再使用は 400 `invalid_request`）、その回は `posts` に書かず、Jev も呼ばずに終える。更新が 400・401 で失敗した回と、書き込みが 3 回とも失敗した回は、`ingest_state` の `auth_failed_at` が NULL なら今の時刻を置く（値があれば変えない）。更新が成功して `x_auth` に書けた回は NULL に戻す。これは止める印（`halted_at`）とは別で、何も止めず、`failing_since` にも数えない。5xx や通信の失敗は記録しない。印が立っている回は更新を呼ばないので、`auth_failed_at` も変えない（9-11）。ログには本文もトークンも出さず、エラー種別だけ | 自動テストで X のトークン更新を 400 と 401 で失敗させ、`posts` の件数と Jev の呼び出し回数が 0 であること、更新が成功した回に新しい refresh token が X の API の呼び出しより前に `x_auth` へ書かれること、`x_auth` の書き込みを 1 回・2 回失敗させると同じ回の中で書き直して X の API を呼ぶこと、3 回とも失敗させると X の API の呼び出しが 0 回であること、更新の 400・401 と書き込みの 3 回失敗で `auth_failed_at` が置かれ、2 回目の失敗で時刻が変わらず、成功した回に NULL に戻ること、Secret を入れ直す（hash が違う）と Secret の値で更新し、同じ Secret のままなら `x_auth` の値で更新すること、更新の要求に client secret が無いこと、更新と書き込みを失敗させた回で `ingest_state` の `halted_at`・`failing_since` が変わらないことを数える |
 | 3 | 取得の形と応答を検証 | まず `ingest_state` の止める印を見て、立っていればトークン更新も X の API も呼ばず何もせず終える。取るのは本人の `liked_tweets` を新しい順に 5 件ずつ（`max_results=5`、`tweet.fields=created_at,entities`）。`first_url` は `entities.urls` を出現順（`start` 昇順）に見て、ホストが `x.com`・`twitter.com`（`www.` 付きを含む）・`pic.twitter.com` でない最初の `expanded_url` とし、無ければ省く（9-12）。ページ内に 4-2 の覚えた `post_id` のどれかがあれば、そこで止める。無ければ次のページを取り、10 ページ全部に行き当たらなければ、50 件を何も扱わず、`seen_likes` も変えず、止める印を立てる。覚えが空の初回は 1 ページを覚えるだけで、D1 の `posts` に書かない。ページを全部取ってから、行き当たった位置より新しい投稿を扱い、全部扱い終えた後に `seen_likes` を最初のページの内容で置き換える。全部扱い終えた後の `posts` の書き込み、`seen_likes` の置き換え、`failing_since` の NULL 戻しは D1 の batch 1 つで行う。1 ページ目の取得が済んだ後に最後まで済まなかった回（2 ページ目以降の取得、batch の失敗）は `posts` に行を残さず、`seen_likes` を変えず、`failing_since` に最初の失敗の時刻を置き、次の回が取り直す。その失敗が UTC の日付をまたいで続いたら、止める印を立てる。1 ページ目の取得・トークン更新・`x_auth` の書き込みの失敗は課金が無いので数えない。X の API と oEmbed の応答は zod で必要な項目だけ確かめ、形に合わない投稿は捨てて、その回の他の投稿は続ける。oEmbed を引くのは Jev が IT 系と判定した投稿だけで、oEmbed が失敗した投稿は D1 に書かず捨てる | 自動テストで X の API と oEmbed を差し替え、(a) 要求の `max_results` と、覚えに当たったページで次のページを取らないこと、覚えが空なら 1 ページで止まり `posts` が増えないこと、(b) 10 ページ当たらないとき、`posts` も `seen_likes` も変わらず印が立つこと、(c) 印が立っていると、トークン更新・X の API・Jev・oEmbed の呼び出しが 0 回で `posts` が増えないこと、(d) 2 ページ目の取得と D1 への書き込みを失敗させ、`seen_likes` が変わらず `posts` に行が増えないこと、同じ UTC 日の失敗では印が立たず、日付をまたいだ失敗で印が立つこと、1 ページ目の失敗・トークン更新の失敗・`x_auth` の書き込みの失敗では `failing_since` が置かれず印も立たないこと、(e) 非 IT 系で oEmbed の呼び出し回数が 0 であること、(f) 形を崩した応答で D1 の件数が増えないこと、(g) 全部扱い終えた回に `seen_likes` が最初のページの内容になること、(h) 外部リンク・写真リンク（`pic.twitter.com`、`x.com/.../photo/1`）・リンク無しの投稿で `first_url` が 9-12 のとおりになること、リンクの有無で oEmbed の要求が変わらないことを数える |
 | 4 | `tweet_url` を厳密に解析 | 4-1 の 3 の条件を URL 解析で判定する。前方一致ではない。`post_id` は数字文字列のまま D1 に入る | 自動テストに、oEmbed の `author_url` が `https://x.com.evil.example/…` や数字でない ID になる応答を含め、D1 に書かれないことを数える |
 | 5 | Jev で IT 系だけを残す | Jev の `noul` 型の true/false 質問で判定し、スコアが閾値以上なら保存、未満なら捨てる | 自動テストでは Jev を差し替えて両方の分岐を通す。実機は 7 の判定 1 |
@@ -233,7 +234,7 @@ X の認証の最新の値を持つ表 `x_auth`（1 行だけ）は、投稿の 
 | 26 | Worker B は GitHub トークンだけを持つ | (a) Worker B の wrangler 設定に `ai` バインディングが無く、`d1_databases` が `x-like-digest` の 1 本だけで認証用の D1（`AUTH_DB`）を結ばない（B の `services` は C を呼ぶためにあり、権限ではない）。(b) 本番の secret の名前が `GITHUB_TOKEN` の 1 本だけである | 25 と同じ 2 本。(b) は `--name x-like-digest-orchestrator` |
 | 27 | Claude にツールを与えない | Worker C の Claude 呼び出しに `tools` パラメータが無い。生成テキストを文字列としてだけ扱い、評価・実行・SQL に埋め込まない | コードレビューと、Claude を差し替えた自動テストで要求 Body を照合する |
 | 28 | ログに本文と秘密を含めない | ログは JSON 1 行で、項目はジョブ ID、件数、エラー種別、HTTP ステータス、試行回数に限る。`text`、Markdown、`Authorization`、API キーは出さない | 自動テストで全経路を流し、ログ出力に本文の一部と秘密が含まれないことを `grep` で数える |
-| 29 | Worker A は X の認証情報だけを secret に持つ | (a) Worker A の wrangler 設定のバインディングが `d1_databases`（`DB` と `AUTH_DB` の 2 本）と `ai` だけで、`services` が無い。(b) 本番の secret の名前が `X_REFRESH_TOKEN` の 1 本だけである（`X_CLIENT_ID`・`X_USER_ID` は `vars` で、secret ではない） | 25 と同じ 2 本。(b) は `--name x-like-digest-ingest` |
+| 29 | Worker A は X の認証情報だけを secret に持つ | (a) Worker A の wrangler 設定のバインディングが `d1_databases`（`DB` と `AUTH_DB` の 2 本）と `ai` だけで、`services` が無い。(b) 本番の secret の名前が `X_REFRESH_TOKEN`・`X_CLIENT_ID`・`X_USER_ID` の 3 本だけである。X の認証情報以外の secret を持たない。`wrangler.jsonc` の `vars` に X の ID を書かない（公開リポジトリに載るため） | 25 と同じ 2 本。(b) は `--name x-like-digest-ingest` |
 
 ### 残高切れの扱い
 
@@ -315,7 +316,7 @@ AI Gateway は前払いのクレジットで動く。残高が尽きると Jev �
 | 1 | リポジトリの骨組みと基盤。済み（#7 の sub-issue #8〜#17）: CLI を wrangler に決めた行（#8）、Cloudflare の skill と MCP の同梱（#9）、npm workspaces と 3 Worker の骨組み（#10）、Biome（#11）、vitest と Workers プール（#12）、Drizzle と D1 のスキーマ（4-2、4-3。#13）、pre-commit と CI の型・lint・テスト（#14）、D1 の作成（#15）、Jev の実機確認（#16）、3 Worker の deploy・secret・本番スキーマ（#17） | 無し | 1 |
 | 2 | Worker A の検査を書く（5-1〜5-7 の不合格ケース、架空の投稿）。検査データに Jev 応答の両方の形（包みの無い `answers` と `{ state, result }` の包み）を含める。ingest の起動テスト（`GET /` が 200 で "ingest" を返す）は、5-1 の検査（`fetch` ハンドラが無く、`scheduled` で取り込みが走る）に置き換える。検査データにトークン更新の応答（成功・400・401）と、`entities.urls` の形（外部リンク・写真リンク・無し）を足す。X の API と oEmbed の応答（形を崩したもの、覚えた `post_id` に当たるページ、当たらずに 10 ページ続くもの、覚えが空のもの、2 ページ目で失敗するものを含む）も足す | 1、3a | 1 |
 | 3a | X の認証情報の持ち方と oEmbed の引き方の決定（9-11・9-12。#65）。利用者の手元で App を作り、認可コードフローと更新、`liked_tweets`、oEmbed を実機で流して確定した。文書の変更だけで、コードは変えない | 1 | 1 |
-| 3 | Worker A の実装。X の認証と取得（refresh token と `x_auth`、`liked_tweets`）、oEmbed、zod、URL 解析、Jev 呼び出し、D1 保存。Jev 応答の包み（`state`・`result`）の有無は、zod で両方受けるか、deploy した Worker の実機で決める（9-2）。取得済みの判定と、4-2 の `seen_likes` と `ingest_state` のスキーマ（Drizzle と migration。本番 D1 への適用を含む）は 9-13 の確定内容に従う。X の認証情報の持ち方と oEmbed の引き方は 9-11・9-12 の確定内容に従う。認証用の D1（`x-like-digest-auth`。`wrangler d1 create`）の作成と、`x_auth` のスキーマ（4-2。投稿の D1 とは別の migration）、その本番への適用を足し、最初の refresh token を得る手元の手の置き場を決める（9-11） | 2、3a | 1 |
+| 3 | Worker A の実装。X の認証と取得（refresh token と `x_auth`、`liked_tweets`）、oEmbed、zod、URL 解析、Jev 呼び出し、D1 保存。Jev 応答の包み（`state`・`result`）の有無は、zod で両方受けるか、deploy した Worker の実機で決める（9-2）。取得済みの判定と、4-2 の `seen_likes` と `ingest_state` のスキーマ（Drizzle と migration。本番 D1 への適用を含む）は 9-13 の確定内容に従う。X の認証情報の持ち方と oEmbed の引き方は 9-11・9-12 の確定内容に従う。認証用の D1（`x-like-digest-auth`。`wrangler d1 create`）の作成と、`x_auth` のスキーマ（4-2。投稿の D1 とは別の migration）、その本番への適用を足し、最初の refresh token を得る手元のスクリプト（認可コードフロー、PKCE。トークンの値を画面に出さない）をリポジトリに置く。置き場とスクリプトは作業 3（#43）で決めて足す（利用者の決定 2026-11-02。9-11） | 2、3a | 1 |
 | 4 | 初回の取り込み（覚えるだけ）を待ち、実機で IT 系・非 IT 系を 1 件以上ずついいねして取り込みを待つ（判定 1 の実機）。Design Doc の △（判定 1 の測り直し、X の API の費用）がここで動く | 3 と、3 の再 deploy（認証用の D1 が本番にあり、migration が適用済みであること） | 1 |
 | 5 | Worker C の検査と実装。Service Binding の型、Claude 呼び出し、5-13 の検証。起動テストの `ping()` は 5-11 の検査に置き換えるか、起動確認用の RPC として 5-11 に認めて残す。残す案を採る（置き換えると vitest の起動確認の口が無くなる）。残す場合も 5-11 の検査は `summarize` で書く | 1 | 2 |
 | 6 | Worker B の本処理の検査と実装。バッチ確定、`SKIPPED`、Worker C 呼び出し、Markdown の一時保持 | 5 | 2 |
@@ -382,20 +383,33 @@ AI Gateway は前払いのクレジットで動く。残高が尽きると Jev �
 - refresh token は更新のたびに替わった（4 回とも）。古い値をもう一度使うと HTTP 400 `invalid_request`
 - `GET /2/users/{id}/liked_tweets?max_results=5&tweet.fields=created_at,entities` が HTTP 200、5 件と `next_token` が返った
 
+利用者の決定（2026-11-02、issue #65）:
+
+- `X_CLIENT_ID` と `X_USER_ID` は `vars` ではなく Secret に置く。`vars` は `wrangler.jsonc` に載り、このリポジトリは公開なので、公開リポジトリに載せない。Worker A の secret は `X_REFRESH_TOKEN`・`X_CLIENT_ID`・`X_USER_ID` の 3 本になる。2 節は「各 Worker は自分の外部サービスの認証情報だけを持つ」の形にし、5-29(b) は 3 本の名前を期待する。Design Doc 6「Worker C は Claude API キーだけ、Worker B は GitHub トークンだけ」とは食い違わない（A の 3 本はどれも X の認証情報）。Workers Free の上限は 1 Worker あたり secret と変数を合わせて 64 個で、枠は問題ない。CI の 5-29 の検査の期待が変わるなら、直すのは作業 3（#43）か別の作業で、この文書では行わない
+- 最新の refresh token は、投稿の D1 ではなく、refresh token だけを持つ別の D1 `x-like-digest-auth`（バインディング `AUTH_DB`）の `x_auth`（4-2）に置き、Worker A だけに結ぶ。同じ D1 に置くと B の `DB` からも読め、権限分離の趣旨に反する。KV は採らない: 書いた値の伝播が遅れ、替わる refresh token を古い値で読むと認証が止まる。同じ D1 のまま B から読めることを受け入れる案も採らない。権限分離の `grep`（5-26(a)、5-29(a)）は、ingest の `d1_databases` が 2 本、orchestrator が 1 本を期待する形になる。CI の期待値と wrangler 設定の直しは作業 3（#43）か別の作業で行う
+- 新しい refresh token の書き込みが失敗したら、同じ回の中で書き直す（実装者の判断は下の回数と間隔）
+- 更新が 400・401 で失敗したら、認証が通らないことが分かる記録を `ingest_state` に残す（列は 4-2 の `auth_failed_at`）。通知は作らない。記録は止める印とは別で、何も止めない（下の実装者の判断）
+- 最初の refresh token を得る手元のスクリプト（認可コードフロー、PKCE。トークンの値を画面に出さない）をリポジトリに置く。置き場とスクリプトは作業 3（#43）で決めて足す
+
+認証が通らなくなる原因と直し方:
+
+- 原因は 3 つ。(1) 新しい refresh token の書き込みが書き直しても失敗した（新しい値を失い、古い値は替わったので 400 になる）。(2) 更新の応答が届かなかった（X は値を替えたが Worker は受け取れず、古い値は使えない）。(3) 止める印で止めている間などに更新が呼ばれず、refresh token の期限が切れた（期限は未確認）。どれも以後の回で更新が失敗し続け、毎時 400 か 401 で終わる。更新の失敗は課金が無いので害は無い
+- 直し方: 手元のスクリプトで認可をやり直して新しい refresh token を得る。`wrangler secret put X_REFRESH_TOKEN --name x-like-digest-ingest` で入れ直す。`x_auth` の `seed_hash` が違うので、次の回は Secret の値から始まる。更新が成功して書けた回に `auth_failed_at` は NULL に戻る。残るときは `wrangler d1 execute x-like-digest --remote --command "UPDATE ingest_state SET auth_failed_at = NULL"` で消す。止める印が立っているときは 9-13 の再開の手も要る
+- 気づく手: 通知は作らず、ダイジェストが届かないことで気づき、`ingest_state` の `auth_failed_at` で原因が分かる（9-13 と同じ）
+
 実装者の判断（issue #65。利用者が追認するまでの暫定）:
 
-- secret は Worker A の `X_REFRESH_TOKEN` 1 本のまま。client secret が無いので、2 節と 5-29 の「1 本」は崩れない
-- 最新の refresh token は D1 の `x_auth`（4-2）に置く。置き場は投稿の D1 ではなく、refresh token だけを持つ別の D1 `x-like-digest-auth`（バインディング `AUTH_DB`）で、Worker A だけに結ぶ。同じ D1 に置くと、B の `DB` からも読め、Design Doc 6「Worker B は GitHub トークンだけを持つ」の趣旨（秘密を持つ Worker を分ける）に反する。DB 名は既存の `x-like-digest` に `-auth` を足し、バインディング名は `DB` と並べて用途が分かる `AUTH_DB` にした。KV は採らない: 書いた値の伝播が遅れ、替わる refresh token を古い値で読むと認証が止まる。同じ D1 のまま B から読めることを受け入れる案も採らない（利用者の決定 2026-11-02）。権限分離の `grep`（5-26(a)、5-29(a)）は、ingest の `d1_databases` が 2 本、orchestrator が 1 本を期待する形になる。CI の検査の期待値と wrangler 設定の直しはこの文書では行わず、作業 3（#43）か別の作業で行う。替わるたびに Worker が書き換える必要があり、Worker は自分の Secret を書き換えられないため。Secret は初期値と作り直しの種にだけ使い、`x_auth` の `seed_hash` が今の Secret の hash と同じなら `x_auth` の値、違えば Secret の値で始める。Secret を入れ直すだけで作り直せ、D1 の行を手で消さずに済む。D1 に直接入れる案は、トークンがシェルの履歴に残り、`wrangler secret put` の対話入力より漏れやすいので採らない
+- 書き直しは同じ回の中で最大 2 回、1 秒、2 秒あけて行う（計 3 回）。D1 の一時的な失敗は短い待ちで直ることが多く、これ以上待つと 1 回の実行が長引くため。それでも書けなければ、その回は X の API を呼ばずに終える
+- `auth_failed_at` は止める印（上限・日付またぎ。`halted_at`）と別にした。止める印は、取り直しで料金が重複するのを防ぐためのもので、再開は手で消す。認証が通らないときは課金が起きず、Secret を入れ直せば次の回で自動に戻るので、同じ印にすると戻す手が増える。`failing_since` にも数えない（5-3 の「数えない失敗」と同じ扱い）。記録するのは 400・401 と、書き込みの 3 回失敗だけにして、5xx や通信の一時的な失敗は記録しない
+- 使う refresh token は、Secret の hash が `x_auth` の `seed_hash` と同じなら `x_auth` の値、違えば Secret の値。Secret を入れ直すだけで作り直せ、D1 の行を手で消さずに済む。D1 に直接入れる案は、トークンがシェルの履歴に残り、`wrangler secret put` の対話入力より漏れやすいので採らない
 - 更新で受け取った新しい refresh token は、その回の access token を使う前に `x_auth` に書く。先に使うと、書く前に落ちたとき新旧どちらの値も手元に残らない
-- 書き込みに失敗した回は新しい値を失い、古い値は替わったので 400 になる。以後の回は更新が失敗し続け、毎時 400 で終わる。更新の失敗は課金が無いので止める印は立てない。直し方は、利用者が認可コードフローをやり直して `wrangler secret put X_REFRESH_TOKEN` で入れ直すこと（`seed_hash` が違うので Secret の値から始まる）。通知は作らず、ダイジェストが届かないことで気づく（9-13 と同じ）
 - access token は保存せず、取得の回ごとに更新する。2 時間使い回すと access token も D1 に置くことになり、保存場所と失効の判断が増える。更新は課金が無く、毎時 1 回の D1 の書き込みで済む。止める印が立っている間は更新も呼ばない
-- 利用者の user id とクライアント ID は `vars`（`X_USER_ID`、`X_CLIENT_ID`）に置く。`/2/users/me` は引かない。毎回の追加の呼び出しが要らず、料金が付くかも未確認のため。どちらも秘密ではない（クライアント ID は認可の URL に出る。user id は X 上で公開）。値は `wrangler.jsonc` に書くことになり、このリポジトリは公開である
-- 最初の refresh token を得る手元の手（認可コードフロー。コードが数十秒で切れるので、貼らずに受ける形）はリポジトリにまだ無い。作り直しにも要るので、置き場は作業 3（#43）が決める
+- `/2/users/me` は引かない。毎回の追加の呼び出しが要らず、料金が付くかも未確認のため。user id は Secret の `X_USER_ID` で持つ
 
 まだ実機で確かめていないこと:
 
 - `/2/users/me` に料金が付くか。使わないので決定には効かない
-- refresh token の有効期限
+- refresh token の有効期限（止めている間に切れうる）
 - 更新の応答が失われたとき、新旧どちらの refresh token が有効か
 
 ### 9-12 の確定内容
@@ -431,7 +445,7 @@ AI Gateway は前払いのクレジットで動く。残高が尽きると Jev �
 - 覚える件数 5: 1 ページが 5 件なので、最初のページをそのまま覚えられ、覚えるための追加の読み出しと課金が無い。覚えた投稿のいいねを取り消すと行き当たれなくなるが、5 件が同時に全部消える回はめったに無い。1 件だけでは 1 回の取り消しで止まれなくなる。最初のページが 5 件未満なら、返った件数だけ覚える
 - 取得はページを全部取ってから扱う。2 ページ目以降の取得の失敗で、扱いかけの投稿が残らないようにするため
 - `posts` の書き込み、`seen_likes` の置き換え、`failing_since` の NULL 戻しは D1 の batch 1 つにまとめる。扱いの途中で失敗した回は `posts` に行が残らない。残ると、取り直しが 18:00 をまたいだときに、残った行が本処理でバッチに入り、5-19 で消えた後に再び入って翌日のダイジェストに重複するため。Jev・oEmbed の呼び出しは batch の前に済ませる
-- 日付をまたいで止める失敗の数え方: 1 ページ目の取得が済んだ後（課金が起きた後）に最後まで済まなかった回を失敗とし、その最初の時刻を `failing_since` に置く。最後まで済んだ回の batch の中で NULL に戻す。1 ページ目の取得の失敗・トークン更新の失敗・`x_auth` の書き込みの失敗は課金が無いので数えない。日付をまたいで止める規則は、料金の重複を防ぐためのものである。Jev と oEmbed の投稿単位の失敗は 5-6 のとおり投稿を捨てて続けるので、回の失敗にしない
+- 日付をまたいで止める失敗の数え方: 1 ページ目の取得が済んだ後（課金が起きた後）に最後まで済まなかった回を失敗とし、その最初の時刻を `failing_since` に置く。最後まで済んだ回の batch の中で NULL に戻す。1 ページ目の取得の失敗・トークン更新の失敗・`x_auth` の書き込みの失敗は課金が無いので数えない（認証が通らない印 `auth_failed_at` は別の記録で、何も止めない。9-11）。日付をまたいで止める規則は、料金の重複を防ぐためのものである。Jev と oEmbed の投稿単位の失敗は 5-6 のとおり投稿を捨てて続けるので、回の失敗にしない
 - 止まる回の課金: 上限に当たる回は 50 件で約 $0.05（約 7.5 円）。印が立つので 1 度きりで、次の回からは X の API を呼ばない
 - 捨てた投稿（残高切れ・oEmbed の失敗を含む）は覚えに入るので取り直されない
 
@@ -441,7 +455,7 @@ Design Doc 6「入口」の「5 件とも未取得なら次のページも取る
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
-| 2026-11-02 | 9-11・9-12 を確定した（client secret は要らない。refresh token は更新のたびに替わるので、最新の値は ingest だけに結ぶ認証用の D1（投稿用とは別。D1 は 2 本）の `x_auth`、Secret は種。クライアント ID と user id は `vars`。投稿者は oEmbed の `author_url`、`first_url` は X の API の `entities`）。4-2 に `x_auth` を足し、2・4-1・5-2・5-3・5-29・8 の作業 3a・3・4 を合わせた | [ADR tech-requirements-0009](ADR/tech-requirements/0009-x-auth-oembed.md) |
+| 2026-11-02 | 9-11・9-12 を確定した（client secret は要らない。refresh token は更新のたびに替わるので、最新の値は ingest だけに結ぶ認証用の D1（投稿用とは別。D1 は 2 本）の `x_auth`、Secret は種。クライアント ID と user id は Secret（Worker A の secret は 3 本）。更新と書き込みの失敗は書き直し、400・401 は `auth_failed_at` に残す。投稿者は oEmbed の `author_url`、`first_url` は X の API の `entities`）。4-2 に `x_auth` を足し、2・4-1・5-2・5-3・5-29・8 の作業 3a・3・4 を合わせた | [ADR tech-requirements-0009](ADR/tech-requirements/0009-x-auth-oembed.md) |
 | 2026-11-01・02 | 9-13 を確定した（前回の取得で上位にあった 5 件の `post_id` に行き当たるまで新しい順にめくる。最大 10 ページで、当たらなければ止める印を立てて定期の取得を止める。初回は覚えるだけ。途中の失敗が UTC の日付をまたいでも止める）。4-2 に `seen_likes` と `ingest_state` を足し、入力元の対応表・3 節の境界値・4-1・5-3・5-7・残高切れ・7 節の判定 1・8 節の作業 2〜4 を合わせた | [ADR tech-requirements-0008](ADR/tech-requirements/0008-fetched-definition.md) |
 | 2026-11-01 | 入口を IFTTT から X の API で取りに行く形に替えた（Design Doc の ADR design-doc-0003 に合わせる）。入力元の対応表・1・2・3・4-1・5 の 1〜4・7・29 と残高切れ・6 の 1・4・8・11・13・7 節の判定 1 と 5・8 節の作業 2〜4・11・9 の△ 8〜13 が動き、9-8 の確定内容を外した。ADR tech-requirements-0006 を取り消した | [ADR tech-requirements-0007](ADR/tech-requirements/0007-x-api-entry.md) |
 | 2026-11-01 | 9-8 を確定（Body は本文を `<<<` `>>>` で囲む。12 秒に収まった。判定 1 は IT 系 2 件 = 2 行、非 IT 系 0 行で合格）。7 節の判定 1 の線を件数固定でない形に直した。4-1 に Applet の組み方と Body を足した | [ADR tech-requirements-0006](ADR/tech-requirements/0006-ifttt-real-device.md) |

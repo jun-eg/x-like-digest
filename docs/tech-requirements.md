@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: e9385efa73add38e71a0a72abdcebdb9cd74e774
+source-hash: d3b7bc9f10f35401f7993f55611fe5cf08111739
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト
@@ -11,13 +11,13 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 ## 実行形態
 
 - Workers Free 3 本（ingest、orchestrator、summarizer）、D1 Free 1 本、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`、Cloudflare のクレジットで支払う）。常駐プロセスは無い
-- 入口は ingest の Cron（毎時）が X の API で本人のいいねを最新 5 件ずつ取りに行く形で、どの Worker にも公開ルートは無い。投稿者名は IT 系と判定した投稿だけ oEmbed で引く。秘密は Worker ごとに 1 つずつ置き、2 つ以上持たせない（ingest は X の認証情報。名前と数は仮）。ingest は加えて AI バインディングと D1、orchestrator は D1 と summarizer への Service Binding、summarizer はバインディング無し
+- 入口は ingest の Cron（毎時）が X の API で本人のいいねを新しい順に 5 件ずつ、前回の取得で上位にあった 5 件の投稿 ID に行き当たるまで取りに行く形で（最大 10 ページ。当たらなければ止める印を D1 に立てて定期の取得を止める。初回は覚えるだけ）、どの Worker にも公開ルートは無い。投稿者名は IT 系と判定した投稿だけ oEmbed で引く。秘密は Worker ごとに 1 つずつ置き、2 つ以上持たせない（ingest は X の認証情報。名前と数は仮）。ingest は加えて AI バインディングと D1、orchestrator は D1 と summarizer への Service Binding、summarizer はバインディング無し
 - コードは 1 リポジトリに 3 つの wrangler プロジェクト。利用者本人が実装者なので開発者向けの道具を要求してよい。CLI は wrangler と `wrangler.jsonc` で、`cf` CLI は beta で secret 投入とログが未対応、dev と deploy も wrangler に委譲しているため採らない。beta が終わったら `cf migrate --dry-run` から見直す
 
 ## 規則
 
 - IT 系の定義、「その日の投稿」は 18:00 JST までに受信した未処理の集合、ファイル名は処理日の JST 日付、同名ファイルは内容が違えば上書きしない、削除は当日バッチだけ、要約は 1 回だけで保存は翌日の本処理まで、0 件なら何もしない
-- 境界値は 11 件を表にした。18:00 ちょうどは当日、Cron の遅れは 09:00 UTC で切る、取得済みの投稿は保存も判定もしない、Retry-After が期限を超えたら期限で最終試行、AI Gateway の残高切れ（`2021`）は判定失敗と同じで捨てる（通知は作らず、ダイジェストが届かないことで気づく。途中で尽きた日と 0 件の日は見分けがつかない）、前日分の未保存は翌日の本処理の先頭で処分する
+- 境界値は 11 件を表にした。18:00 ちょうどは当日、Cron の遅れは 09:00 UTC で切る、取得済み（前回の上位 5 件に行き当たった位置以降。D1 の有無では決めない）は保存も判定もしない、再いいねでの再取り込みと、覚えた投稿の再いいねで間のいいねが落ちることは許す、Retry-After が期限を超えたら期限で最終試行、AI Gateway の残高切れ（`2021`）は判定失敗と同じで捨てる（通知は作らず、ダイジェストが届かないことで気づく。途中で尽きた日と 0 件の日は見分けがつかない）、前日分の未保存は翌日の本処理の先頭で処分する
 
 ## 仕様と選定
 
@@ -37,7 +37,7 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 開いていること
 
-- 値だけ未確定の項目が 5 件。Jev の閾値、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、Jev と Claude の実費。入口が替わって、X の API の実額、soft guarantee と料金の変動、X の認証情報の持ち方、oEmbed の引き方、「取得済み」の定義（非 IT 系の毎時の再判定と追加課金、5-19 の削除後の翌日の重複、空の初回の次ページの止まり方）が増えた。前の入口の実機の確定（9-8）は取り消した
+- 値だけ未確定の項目が 5 件。Jev の閾値、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、Jev と Claude の実費。入口が替わって、X の API の実額、soft guarantee と料金の変動、X の認証情報の持ち方、oEmbed の引き方が増えた。「取得済み」の定義は確定した（件数 5 は実装者の判断。止まった後の再開は利用者が D1 の印を消す）。前の入口の実機の確定（9-8）は取り消した
 - GitHub の保存先は `jun-eg/my-bias` の `main`、トークンは同リポジトリだけに限った Contents の書込（確定）。secret の名前は `X_REFRESH_TOKEN`（A、仮）、`GITHUB_TOKEN`（B）、`ANTHROPIC_API_KEY`（C）。
 
 ## 根拠の在処

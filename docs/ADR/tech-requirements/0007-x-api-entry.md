@@ -1,6 +1,6 @@
 ---
 source: agent/ADR/tech-requirements/0007-x-api-entry.md
-source-hash: 1907c98fbe197a94bfaa35b15e289da0390ae1af
+source-hash: d2dd45f4854539c5ddc5f14d5c303d792721f771
 ---
 
 # ADR tech-requirements-0007 の要約: 入口が X の API で取りに行く形に替わり、IFTTT を前提にした仕様を取り消した

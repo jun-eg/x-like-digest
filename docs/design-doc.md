@@ -1,6 +1,6 @@
 ---
 source: agent/design-doc.md
-source-hash: f2f2d7c01fdee6a4eede8f99936784d0b0a6b66e
+source-hash: 900c78f68a3b36cc2d46e7f7d4709654c5ab213a
 ---
 
 # Design Doc の要約: X いいね IT 情報デイリーダイジェスト
@@ -14,7 +14,7 @@ X でいいねした投稿のうち IT 系だけを集め、毎日 18:00 に Cla
 - ジャーニーマップと HMW は起こさない。利用者が本人 1 人なので壁打ちで代えた
 - 価値は 2 つ。帰宅後に 1 ページ読めば済むことと、偏りが日付つきで GitHub に残ること
 - 入口は X のいいね。ブックマークはいいねに含まれるので取らない
-- いいねは Worker A が X の API で 1 時間おきに取りに行く。投稿者名は無認証の oEmbed で引き、expansions は使わない。IFTTT Free は credit で月 8 件分しか流せず却下。スマホの共有は操作が増え、ブラウザ拡張は PC を使わないので却下
+- いいねは Worker A が X の API で 1 時間おきに取りに行く（止め方と上限は技術の要件定義 9-13）。投稿者名は無認証の oEmbed で引き、expansions は使わない。IFTTT Free は credit で月 8 件分しか流せず却下。スマホの共有は操作が増え、ブラウザ拡張は PC を使わないので却下
 - IT 系の判定は Jev。Claude は費用、キーワードは拾い漏れで却下。Jev は Workers AI ではなく TypeSafe のモデルで、AI Gateway 経由で呼び、Cloudflare のクレジットで払う
 - 1 日 1 回 18:00、A4 約 1 ページ。即時と週次は却下
 - 置き場は GitHub。Obsidian はローカルなので別の端末から開けない

@@ -101,7 +101,7 @@ MVP は要件定義書 §12 の P1〜P5 全部である。無人運用が前提�
 
 ### スコープ内
 
-- 入口。Worker A が X の API（本人の `GET /2/users/{id}/liked_tweets`、owned read で 1 件 $0.001）で自分のいいねを 1 時間おきに取りに行く。1 回に取るのは最新 5 件で、5 件とも未取得なら次のページも取る。投稿者名は無認証の oEmbed で引き、API の expansions は使わない（利用者情報は 1 件 $0.01 で、投稿の 10 倍かかる）。認証は OAuth 2.0 の refresh token を Worker A が持つ。いいねから D1 に届くまで最大 1 時間かかり、18:00 の本処理はその時点で届いている分を扱う
+- 入口。Worker A が X の API（本人の `GET /2/users/{id}/liked_tweets`、owned read で 1 件 $0.001）で自分のいいねを 1 時間おきに取りに行く。1 回に取るのは最新 5 件で、5 件とも未取得なら次のページも取る。止め方と上限は技術の要件定義 9-13。投稿者名は無認証の oEmbed で引き、API の expansions は使わない（利用者情報は 1 件 $0.01 で、投稿の 10 倍かかる）。認証は OAuth 2.0 の refresh token を Worker A が持つ。いいねから D1 に届くまで最大 1 時間かかり、18:00 の本処理はその時点で届いている分を扱う
 - 分類。Worker A が Jev で IT 系かどうかを判定し、IT 系だけを D1 に保存する。非 IT 系と判定失敗は捨てる
 - 確定。毎日 18:00 JST に Worker B が、その時点で D1 にある未処理の投稿を 1 バッチに確定する。0 件なら何もしない
 - 要約。Worker B が Service Binding で Worker C を呼び、Claude Fable 5.1 が話題別の日本語ダイジェスト（A4 約 1 ページ、Markdown）を 1 回だけ生成する。形式の機械検証だけ行い、失敗したらその日の投稿を捨てる
@@ -159,6 +159,7 @@ Jev の閾値、Workers Free の CPU 10 ms、Claude の入力上限、GitHub の
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
+| 2026-11-02 | 6 の入口に「止め方と上限は技術の要件定義 9-13」と指す一言を足した。初回は覚えるだけで取り込まないことが 9-13 で決まったため | [ADR design-doc-0004](ADR/design-doc/0004-entry-stop-rule-pointer.md) |
 | 2026-11-01 | 6 の入口を IFTTT Free から X の API で取りに行く形に替えた。1・5・6 のスコープ外と前提と△・7 のマイルストーン 1 も動き、ADR design-doc-0002 を取り消した | [ADR design-doc-0003](ADR/design-doc/0003-x-api-pull-entry.md) |
 | 2026-11-01 | 6 の△「IFTTT Free の Applet が実機で成立するか」を確定（成立した。トリガーの確認は 1 時間に 1 回） | [ADR design-doc-0002](ADR/design-doc/0002-ifttt-applet-works.md) |
 | 2026-11-01 | 6 の前提を、Workers AI から AI Gateway のクレジットに変更（Jev は TypeSafe のモデル） | [ADR design-doc-0001](ADR/design-doc/0001-jev-via-ai-gateway.md) |

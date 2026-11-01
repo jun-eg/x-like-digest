@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: 8c8d140625ad5914cf9c89924e0abf08ef56b34b
+source-hash: 63d0a12006cccc06ac2c7c68f53587790340fb47
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト
@@ -37,7 +37,7 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 開いていること
 
-- 値だけ未確定の項目が 5 件。Jev の閾値、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、Jev と Claude の実費。入口が替わって、X の API の実額、soft guarantee と料金の変動、X の認証情報の持ち方、oEmbed の引き方、非 IT 系を取得済みとする持ち方（毎時の再判定と追加課金の恐れ）が増えた。前の入口の実機の確定（9-8）は取り消した
+- 値だけ未確定の項目が 5 件。Jev の閾値、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、Jev と Claude の実費。入口が替わって、X の API の実額、soft guarantee と料金の変動、X の認証情報の持ち方、oEmbed の引き方、「取得済み」の定義（非 IT 系の毎時の再判定と追加課金、5-19 の削除後の翌日の重複、空の初回の次ページの止まり方）が増えた。前の入口の実機の確定（9-8）は取り消した
 - GitHub の保存先は `jun-eg/my-bias` の `main`、トークンは同リポジトリだけに限った Contents の書込（確定）。secret の名前は `X_REFRESH_TOKEN`（A、仮）、`GITHUB_TOKEN`（B）、`ANTHROPIC_API_KEY`（C）。
 
 ## 根拠の在処

@@ -27,7 +27,7 @@ Design Doc の 6 スコープ内と 7 マイルストーンを 1 行ずつ仕分
 | 6 スコープ内「要約」 | Service Binding で Worker C を呼び、Claude Fable 5.1 が 1 回だけ生成。形式の機械検証だけ行い、失敗したら捨てる | 5-11〜5-15、6-4、6-5 |
 | 6 スコープ内「保存」 | GitHub Contents API で `daily/YYYY-MM-DD.md` に保存し、内容一致を確認してから D1 の該当バッチを消す | 3-4、3-5、5-16〜5-19、6-6 |
 | 6 スコープ内「再試行」 | 翌日 18:00 の本処理まで。cron は 10 分おき 1 本、次に試す時刻はジョブが持つ。最初の 1 時間は 10 分間隔、以降 1 時間間隔。要約は再実行しない | 3-6、5-20〜5-24、6-1 |
-| 6 スコープ内「権限分離」 | Worker C は Claude API キーだけ、Worker B は GitHub トークンだけ。Claude にツールを与えない | 2、5-25〜5-27、6-2 |
+| 6 スコープ内「権限分離」 | Worker C は Claude API キーだけ、Worker B は GitHub トークンだけ。Claude にツールを与えない | 2、5-25〜5-27、5-29、6-2 |
 | 6 スコープ内「運用」 | 本文と秘密を含まないログ、無料枠と実費の確認、受け入れ試験 | 5-28、7、9 |
 | 6 スコープ外 | 11 項目 | 1「引き受けない範囲」に引用。広げない |
 | 6 前提にしている「すでにあるもの」 | X・IFTTT・Cloudflare・GitHub・Claude API の各アカウント | 2 |
@@ -193,7 +193,7 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | 8 | 18:00 JST に未処理を 1 バッチに確定 | ジョブ ID は JST 日付。確定は 1 文の `UPDATE posts SET batch_id = ? WHERE batch_id IS NULL AND received_at <= ?`（? は当日 09:00:00 UTC）で行う | 自動テストで 09:00 UTC の前後に `received_at` を置いた投稿を用意し、前だけが付くことを数える |
 | 9 | 0 件なら何もしない | 確定件数が 0 ならジョブを `SKIPPED` にし、Worker C を呼ばず GitHub にも書かない | 自動テストで Worker C と GitHub の呼び出し回数が 0 であることを数える |
 | 10 | 二重起動しない | ジョブ ID の一意制約で 2 回目の確定は失敗し、投稿に 2 つ目のバッチが付かない | 自動テストで同じ日付の本処理を 2 回走らせ、ジョブが 1 件であることを数える |
-| 11 | Worker B が Service Binding で Worker C を呼ぶ | Worker C は `summarize({ posts, digestDate })` を受けて `{ markdown }` を返す。公開ルートを持たない。`ping()` は vitest の起動確認のための RPC で、`summarize` 以外の口を持たない判定からは外す（ADR tech-requirements-0005） | 自動テストで Worker C に直接 HTTP を送って到達しないことを確かめる |
+| 11 | Worker B が Service Binding で Worker C を呼ぶ | Worker C は `summarize({ posts, digestDate })` を受けて `{ markdown }` を返す。公開ルートを持たない。`ping()` は vitest の起動確認のための RPC として認める（ADR tech-requirements-0005） | 自動テストで Worker C に直接 HTTP を送って到達しないことを確かめる |
 | 12 | Claude Fable 5.1 が 1 回だけ生成 | モデル ID は `claude-fable-5-1`。`tools` を渡さない。1 バッチにつき Claude の呼び出しは最大 1 回 | 自動テストで Claude を差し替え、保存を 3 回失敗させても呼び出し回数が 1 であることを数える |
 | 13 | 形式の機械検証だけ行う | 検証は 4 つ。本文が空でない。4-5 の見出し 4 本がこの順にある。空白と改行を除いた文字数が 1,000 以上 1,300 以下。本文中の `x.com` と `twitter.com` の status URL がすべてバッチの `tweet_url` に含まれる | 自動テストで各条件を 1 つずつ崩した Markdown を通して不合格を数える |
 | 14 | 要約に失敗したら捨てる | Claude の失敗、応答不正、13 の不合格のいずれでもジョブを `ABANDONED` にし、バッチの投稿を削除し、GitHub に書かない | 自動テストで 3 種類を起こし、D1 の投稿が 0 件、GitHub の呼び出しが 0 回であることを数える |
@@ -209,9 +209,9 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | 24 | 即時に打ち切る応答 | 4-4 の 5 の応答を受けたら再試行せず `ABANDONED` にする | 自動テストで 401 と 422 を返し、`attempts` が 1 で終わることを数える |
 | 25 | Worker C は Claude API キーだけを持つ | (a) Worker C の wrangler 設定に `d1_databases`・`ai`・`services` のバインディングが無い。(b) 本番の secret の名前が `ANTHROPIC_API_KEY` の 1 本だけである | (a) 設定ファイルを読み、CI で `grep` して検査する。(b) `wrangler secret list --name x-like-digest-summarizer` を人が手元で見る（CI には Cloudflare の認証を置かない）。secret は設定ファイルに出ないので、(a) では見られない |
 | 26 | Worker B は GitHub トークンだけを持つ | (a) Worker B の wrangler 設定に `ai` バインディングが無い（B の `services` は C を呼ぶためにあり、権限ではない）。(b) 本番の secret の名前が `GITHUB_TOKEN` の 1 本だけである | 25 と同じ 2 本。(b) は `--name x-like-digest-orchestrator` |
-| 29 | Worker A は `IFTTT_SECRET` だけを secret に持つ | (a) Worker A の wrangler 設定のバインディングが `d1_databases` と `ai` だけで、`services` が無い。(b) 本番の secret の名前が `IFTTT_SECRET` の 1 本だけである | 25 と同じ 2 本。(b) は `--name x-like-digest-ingest` |
 | 27 | Claude にツールを与えない | Worker C の Claude 呼び出しに `tools` パラメータが無い。生成テキストを文字列としてだけ扱い、評価・実行・SQL に埋め込まない | コードレビューと、Claude を差し替えた自動テストで要求 Body を照合する |
 | 28 | ログに本文と秘密を含めない | ログは JSON 1 行で、項目はジョブ ID、件数、エラー種別、HTTP ステータス、試行回数に限る。`text`、Markdown、`Authorization`、API キーは出さない | 自動テストで全経路を流し、ログ出力に本文の一部と秘密が含まれないことを `grep` で数える |
+| 29 | Worker A は `IFTTT_SECRET` だけを secret に持つ | (a) Worker A の wrangler 設定のバインディングが `d1_databases` と `ai` だけで、`services` が無い。(b) 本番の secret の名前が `IFTTT_SECRET` の 1 本だけである | 25 と同じ 2 本。(b) は `--name x-like-digest-ingest` |
 
 ### 残高切れの扱い
 
@@ -257,14 +257,14 @@ AI Gateway は前払いのクレジットで動く。残高が尽きると Jev �
 
 | 上流の完了の定義 | 何を入力に | 何を数えるか | 合格の線 | 誰が測るか |
 | --- | --- | --- | --- | --- |
-| 1. IFTTT から Worker A に届き、IT 系だけが D1 に重複なく溜まる | 自動テスト（5-1〜5-7）と、実機で IT 系 1 件・非 IT 系 1 件・同じ投稿 2 回のいいね | テストの失敗数。実機で D1 の行数 | 失敗 0。実機で行数が 1（IT 系の 1 件だけ） | 自動テストは CI。実機は利用者本人 |
+| 1. IFTTT から Worker A に届き、IT 系だけが D1 に重複なく溜まる | 自動テスト（5-1〜5-7、5-29）と、実機で IT 系 1 件・非 IT 系 1 件・同じ投稿 2 回のいいね | テストの失敗数。実機で D1 の行数 | 失敗 0。実機で行数が 1（IT 系の 1 件だけ） | 自動テストは CI。実機は利用者本人 |
 | 2. Worker B と C を分け、18:00 の Cron で日次 Markdown が生成できる | 自動テスト（5-8〜5-15、5-25〜5-27）と、実機で投稿を数件入れた状態での本処理 1 回 | テストの失敗数。実機でジョブ行の Markdown 列と 5-13 の検証結果 | 失敗 0。実機で `READY_TO_PUBLISH` 以降に進む | 同上 |
 | 3. 保存して D1 の対象が消えるまで、正常系が最後まで動く | 自動テスト（5-16〜5-19）と、実機の本処理 1 回 | テストの失敗数。実機で GitHub の `daily/<日付>.md` の有無と D1 の投稿行数 | 失敗 0。ファイルがあり、バッチの投稿が 0 行、バッチ外の投稿が残る | 同上 |
 | 4. 保存障害と期限切れの挙動が検証済み | 自動テスト（5-20〜5-24）。GitHub を差し替えて 5xx、429 と `Retry-After`、401、応答喪失、期限超過を起こす | テストの失敗数。Claude の呼び出し回数。`next_attempt_at` の列 | 失敗 0。Claude の呼び出しが 1 回。時刻列が 5-22 の表どおり | CI |
 | 5. ログを最小化し、無料枠と実費を確認し、受け入れ試験が通る | 自動テスト（5-28）。実機 1 日分の Cloudflare ダッシュボード（リクエスト数、CPU 時間、D1 の読み書き）と Claude の請求 | ログに本文・秘密が混ざった件数。CPU 時間の最大値。日次のリクエスト数。1 日の Claude 費用 | 混入 0。CPU が 10 ms 未満。リクエストが 100,000 未満。費用は記録して 9 の △ を埋める | 自動テストは CI。実機は利用者本人 |
 | 6. 1 週間運用して、どちらが効いているかを見る | GitHub の `daily/` 7 本と、読んだ日の数 | 読んだ日数。1 本あたりの話題数 | 線は引かない。観察を Design Doc の見直しに返す | 利用者本人 |
 
-要件定義書 §9 の受け入れ条件 AC-01〜AC-15 は、上の判定 1〜5 と 5 の仕様で覆う。AC-01 は判定 1 の実機、AC-02〜05 は 5-2〜5-7、AC-06・07 は 5-8、AC-08 は 5-13、AC-09 は 5-25〜5-27、AC-10 は 5-19、AC-11 は 5-12・5-22、AC-12 は 5-23、AC-13 は 5-17、AC-14 は 5-9、AC-15 は判定 5 である。
+要件定義書 §9 の受け入れ条件 AC-01〜AC-15 は、上の判定 1〜5 と 5 の仕様で覆う。AC-01 は判定 1 の実機、AC-02〜05 は 5-2〜5-7、AC-06・07 は 5-8、AC-08 は 5-13、AC-09 は 5-25〜5-27・5-29、AC-10 は 5-19、AC-11 は 5-12・5-22、AC-12 は 5-23、AC-13 は 5-17、AC-14 は 5-9、AC-15 は判定 5 である。
 
 ### 判定に使う入力データ
 
@@ -290,7 +290,7 @@ AI Gateway は前払いのクレジットで動く。残高が尽きると Jev �
 
 | # | 作業 | 依存 | 対応する上流のマイルストーン |
 | --- | --- | --- | --- |
-| 1 | リポジトリの骨組みと基盤。済み（#7 の sub-issue #8〜#17）: npm workspaces と 3 つの wrangler プロジェクトと vitest の設定、D1 のスキーマ（4-2、4-3）、Biome（#11）、pre-commit と CI の型・lint・テスト（#14）、D1 の作成（#15）、Jev の実機確認（#16）、3 Worker の deploy・secret・本番スキーマ（#17） | 無し | 1 |
+| 1 | リポジトリの骨組みと基盤。済み（#7 の sub-issue #8〜#17）: CLI を wrangler に決めた行（#8）、Cloudflare の skill と MCP の同梱（#9）、npm workspaces と 3 Worker の骨組み（#10）、Biome（#11）、vitest と Workers プール（#12）、Drizzle と D1 のスキーマ（4-2、4-3。#13）、pre-commit と CI の型・lint・テスト（#14）、D1 の作成（#15）、Jev の実機確認（#16）、3 Worker の deploy・secret・本番スキーマ（#17） | 無し | 1 |
 | 2 | Worker A の検査を書く（5-1〜5-7 の不合格ケース、架空の投稿）。検査データに Jev 応答の両方の形（包みの無い `answers` と `{ state, result }` の包み）を含める。ingest の起動テスト（`GET /` が 200 で "ingest" を返す）は 5-1 の検査（`GET /` が 404 か 405）に置き換える | 1 | 1 |
 | 3 | Worker A の実装。認証、zod、URL 解析、Jev 呼び出し、D1 保存。Jev 応答の包み（`state`・`result`）の有無は、zod で両方受けるか、deploy した Worker の実機で決める（9-2） | 2 | 1 |
 | 4 | IFTTT の Applet を作り、実機で 3 件流す（判定 1 の実機）。Design Doc の △ がここで決まる | 3 と、3 の再 deploy | 1 |
@@ -300,7 +300,7 @@ AI Gateway は前払いのクレジットで動く。残高が尽きると Jev �
 | 8 | 実機で正常系を 1 回通す（判定 3 の実機） | 4、7 と、6・7 の再 deploy | 3 |
 | 9 | 再試行の検査と実装。`next_attempt_at`、期限、即時打ち切り、応答喪失 | 7 | 4 |
 | 10 | ログの検査と絞り込み。CI の既存 job「コードの検査（lint・型・テスト）」に、設定ファイルの `grep` の step（5-25(a)、5-26(a)、5-29(a)）を足す。CI 自体は #14 で済んでいる。job 名は main の ruleset に名指しされるので新 job は足さない。(b) の `wrangler secret list` は人が手元で見る | 9 | 5 |
-| 11 | 実機で 1 日運用し、ダッシュボードと請求を記録して 9 の △ を埋める | 8、10 | 5 |
+| 11 | 実機で 1 日運用し、ダッシュボードと請求を記録して 9 の △ を埋める | 8、10 と、9・10 の再 deploy | 5 |
 
 作業の依存に入れる二つの手がある。
 

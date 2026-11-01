@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: e07f198c35dc1987f18175416e6bde80808dc0c1
+source-hash: 2c03eab4ecdb5d393ebfd8c2ad3e628ede43c3f6
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト
@@ -10,7 +10,7 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 実行形態
 
-- Workers Free 3 本（ingest、orchestrator、summarizer）、D1 Free 1 本、Workers AI の Jev。常駐プロセスは無い
+- Workers Free 3 本（ingest、orchestrator、summarizer）、D1 Free 1 本、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`、Cloudflare のクレジットで支払う）。常駐プロセスは無い
 - 公開するのは ingest の `POST /webhooks/x-like` だけ。秘密は Worker ごとに 1 つずつ置き、2 つ以上持たせない
 - コードは 1 リポジトリに 3 つの wrangler プロジェクト。利用者本人が実装者なので開発者向けの道具を要求してよい。CLI は wrangler と `wrangler.jsonc` で、`cf` CLI は beta で secret 投入とログが未対応、dev と deploy も wrangler に委譲しているため採らない。beta が終わったら `cf migrate --dry-run` から見直す
 
@@ -37,7 +37,7 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 開いていること
 
-- 値だけ未確定の △ が 8 件。Jev の閾値とモデル ID、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、GitHub の保存先、実費、IFTTT のエスケープと 12 秒
+- 値だけ未確定の △ が 7 件。Jev の閾値、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、GitHub の保存先、実費、IFTTT のエスケープと 12 秒
 - IFTTT が成立しなければ上流の △ に戻る
 
 ## 根拠の在処

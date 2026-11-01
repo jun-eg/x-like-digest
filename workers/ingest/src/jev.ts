@@ -2,8 +2,10 @@ import { z } from "zod";
 
 export const JEV_MODEL = "typesafe/jev";
 export const JEV_THRESHOLD = 0.6;
-// 1 回の取り込みは最大 50 件を順に判定する。1 件が詰まっても Cron の実行時間に収まるよう短めに切る
-const JEV_TIMEOUT_MS = 20_000;
+// Cron Trigger の実行時間の上限は 15 分（900 秒。Cloudflare の制限）。最悪の回は 49 件（10 ページ目まで、行き当たる 1 件を除く）を
+// 順に Jev にかけ、IT 系なら oEmbed も引く。49 ×（Jev 10 秒 + oEmbed 5 秒）= 735 秒で、上限に余裕をもって収まる。
+// 打ち切られると recordFailure も batch も走らず、日付またぎの止め方（9-13）が効かない
+const JEV_TIMEOUT_MS = 10_000;
 
 const QUESTION = "it";
 

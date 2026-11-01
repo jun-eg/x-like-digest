@@ -4,6 +4,7 @@ export interface Deps {
   sleep: (ms: number) => Promise<void>;
   now: () => Date;
   jevTimeoutMs?: number;
+  oembedTimeoutMs?: number;
 }
 
 export const defaultDeps: Deps = {

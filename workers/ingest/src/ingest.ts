@@ -186,7 +186,7 @@ async function collectPosts(
     }
     if (judgement.kind === "not_it") continue;
 
-    const author = await fetchAuthor(id, deps);
+    const author = await fetchAuthor(id, deps, deps.oembedTimeoutMs);
     if (author.kind === "failed") {
       log("oembed_failed", { error_type: author.errorType });
       continue;

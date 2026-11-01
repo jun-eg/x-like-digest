@@ -223,6 +223,35 @@ describe("5-6 判定失敗は捨てる", () => {
   });
 });
 
+describe("5-3 oEmbed の時間切れ", () => {
+  it("応答が返らない投稿は捨て、その回の残りは続ける", async () => {
+    const h = harness({}, undefined, { oembedTimeoutMs: 20 });
+    h.x.likes = [itLike(3), itLike(2), itLike(1)];
+    await seedSeen([pid(1)]);
+    const inner = h.deps.fetch;
+    h.deps.fetch = (input, init) => {
+      const href =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (!href.includes(pid(3)) || !href.includes("oembed"))
+        return inner(input, init);
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () =>
+          reject(init.signal?.reason),
+        );
+      });
+    };
+    await runIngest(h.env, h.deps);
+    expect((await db.select().from(posts)).map((p) => p.post_id)).toEqual([
+      pid(2),
+    ]);
+    expect(await seenIds()).toEqual([3, 2, 1].map(pid));
+  });
+});
+
 describe("5-7 重複は冪等", () => {
   it("同じ X の API 応答を 2 回流しても 1 行で、2 回目は Jev も oEmbed も呼ばない", async () => {
     const h = await oneNew();

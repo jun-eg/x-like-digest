@@ -17,6 +17,9 @@ export function parseAuthor(authorUrl: string): string | null {
   return AUTHOR_PATH.exec(url.pathname)?.[1] ?? null;
 }
 
+// jev.ts の注記にある 900 秒の見積もり（49 ×（10 + 5）秒）の oEmbed の分
+export const OEMBED_TIMEOUT_MS = 5_000;
+
 export type AuthorResult =
   | { kind: "ok"; author: string }
   | { kind: "failed"; errorType: string };
@@ -25,10 +28,12 @@ export type AuthorResult =
 export async function fetchAuthor(
   postId: string,
   deps: Deps,
+  timeoutMs: number = OEMBED_TIMEOUT_MS,
 ): Promise<AuthorResult> {
   try {
     const res = await deps.fetch(
       `https://publish.x.com/oembed?url=https://x.com/i/status/${postId}&omit_script=true`,
+      { signal: AbortSignal.timeout(timeoutMs) },
     );
     if (!res.ok) return { kind: "failed", errorType: `http_${res.status}` };
     const parsed = oembedResponse.safeParse(

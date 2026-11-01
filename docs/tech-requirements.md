@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: c42c9559edac89b430bf2f0f967c839bd2bcf42e
+source-hash: bd250cd37ad1aa75c682cfc687daff52d12ffe87
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト
@@ -37,8 +37,8 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 開いていること
 
-- 値だけ未確定の △ が 7 件。Jev の閾値、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、GitHub の保存先、実費、IFTTT のエスケープと 12 秒
-- IFTTT が成立しなければ上流の △ に戻る
+- 値だけ未確定の △ が 6 件。Jev の閾値、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、実費、IFTTT のエスケープと 12 秒
+- GitHub の保存先は `jun-eg/my-bias` の `main`、トークンは同リポジトリだけに限った Contents の書込（確定）。secret の名前は `IFTTT_SECRET`（A）、`GITHUB_TOKEN`（B）、`ANTHROPIC_API_KEY`（C）。IFTTT が成立しなければ上流の △ に戻る
 
 ## 根拠の在処
 

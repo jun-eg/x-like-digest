@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: ed08bdb3bc92b5f5e33b0c22a21c79d36465d5ea
+source-hash: 6e724e3a6f6bbb8cd313f4b6bbefb7f85d36eaab
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト
@@ -11,7 +11,7 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 ## 実行形態
 
 - Workers Free 3 本（ingest、orchestrator、summarizer）、D1 Free 1 本、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`、Cloudflare のクレジットで支払う）。常駐プロセスは無い
-- 公開するのは ingest の `POST /webhooks/x-like` だけ。秘密は Worker ごとに 1 つずつ置き、2 つ以上持たせない
+- 公開するのは ingest の `POST /webhooks/x-like` だけ。秘密は Worker ごとに 1 つずつ置き、2 つ以上持たせない。ingest は加えて AI バインディングと D1、orchestrator は D1 と summarizer への Service Binding、summarizer はバインディング無し
 - コードは 1 リポジトリに 3 つの wrangler プロジェクト。利用者本人が実装者なので開発者向けの道具を要求してよい。CLI は wrangler と `wrangler.jsonc` で、`cf` CLI は beta で secret 投入とログが未対応、dev と deploy も wrangler に委譲しているため採らない。beta が終わったら `cf migrate --dry-run` から見直す
 
 ## 規則
@@ -21,7 +21,7 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 仕様と選定
 
-- 仕様は 28 行。各行に「何を見れば満たしたと分かるか」と判定の手を付けた
+- 仕様は 29 行。各行に「何を見れば満たしたと分かるか」と判定の手を付けた。権限分離の判定は 2 本で、設定にバインディングが無いこと（CI の `grep`）と、`wrangler secret list` の名前が 1 本だけであること（人が手元で。secret は設定ファイルに出ない）。作業の順序は、済んだ骨組み・CI・D1・deploy を作業 1 の実績とし、再 deploy と本番 D1 への適用を依存に持つ
 - Cron は `*/10 * * * *` の 1 本で、期限切れの処分、再試行、本処理の順に行う。18:00 の発火が落ちても次の 10 分で拾える
 - 次に試す時刻はジョブが持つ。1〜6 回目は開始 + 10 分 × 回数、7 回目以降は 60 分おき、期限は翌日 09:00 UTC
 - GitHub の内容一致は Git blob SHA-1 を手元で計算して応答の sha と比べる

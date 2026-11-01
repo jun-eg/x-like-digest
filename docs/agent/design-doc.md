@@ -133,7 +133,9 @@ MVP はスコープ外に置いたどの仕組みにも依存しない。
 
 ### 埋まっていないこと（△）
 
-- IFTTT Free で「New liked tweet by you」から Webhook を送る Applet が、実機で成立するか。成立しなければ入口の構成ごと変わる。導入時に Applet を作って 1 件流せば決まる
+- 【確定 2026-11-01】IFTTT Free で「New liked tweet by you」から Webhook を送る Applet は、実機で成立した。トリガー X（Twitter）の「New liked tweet by you」、アクション Webhooks の「Make a web request」で組め、4 節相当の 5 項目すべてに対応する Ingredient がある。いいね 3 件（非 IT 系 1、IT 系 2）を 1 回の確認でまとめて流し、IT 系の 2 件だけが本番 D1 に保存された。同じ投稿の再送は curl で 200 `duplicate` を確かめた（IFTTT 自身の再送は確かめていない）。細部は技術の要件定義 9-8
+- 成立に伴う制約。Free はトリガーの確認が 1 時間に 1 回なので、いいねから D1 に届くまで最大 1 時間かかる（18:00 の本処理は、その時点で届いている分を扱う）。1 回の実行は 120 credits（トリガー 100、アクション 20）で、残りの credit と補充周期は未確認
+- 判定 1 は、IT 系 2 件が 2 行で保存され、非 IT 系は 0 行、同じ投稿の 2 回目で増えなかったので満たした（線は技術の要件定義 7 節で、流した IT 系の件数と比べる形にした）
 
 Jev の閾値、Workers Free の CPU 10 ms、Claude の入力上限、GitHub の保存先の設定値は、判断は決まっていて値だけが未確定なので `docs/agent/tech-requirements.md` に送る。
 
@@ -152,4 +154,5 @@ Jev の閾値、Workers Free の CPU 10 ms、Claude の入力上限、GitHub の
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
+| 2026-11-01 | 6 の△「IFTTT Free の Applet が実機で成立するか」を確定（成立した。トリガーの確認は 1 時間に 1 回） | [ADR design-doc-0002](ADR/design-doc/0002-ifttt-applet-works.md) |
 | 2026-11-01 | 6 の前提を、Workers AI から AI Gateway のクレジットに変更（Jev は TypeSafe のモデル） | [ADR design-doc-0001](ADR/design-doc/0001-jev-via-ai-gateway.md) |

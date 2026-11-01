@@ -1,6 +1,6 @@
 ---
 source: agent/design-doc.md
-source-hash: c0e88b64bf5815487c92ed4762d8c9e3811a9e1c
+source-hash: 7e144cecd56829967f135b3405f391c48222625c
 ---
 
 # Design Doc の要約: X いいね IT 情報デイリーダイジェスト
@@ -26,7 +26,7 @@ X でいいねした投稿のうち IT 系だけを集め、毎日 18:00 に Cla
 
 ## 開いていること
 
-- IFTTT Free で X のいいねから Webhook を送る Applet が実機で成立するか。成立しなければ入口の構成が変わる
+- IFTTT Free の Applet は実機で成立した。入口の構成は変えない。ただしトリガーの確認は 1 時間に 1 回で、届くまで最大 1 時間かかる。credit の残りと補充周期、IFTTT 自身の再送は未確認
 - Jev の閾値や CPU 10 ms などの値は、判断は済んでいるので技術の要件定義に送る
 
 ## 根拠の在処

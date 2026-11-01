@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const JEV_MODEL = "typesafe/jev";
 export const JEV_THRESHOLD = 0.6;
-// IFTTT の Webhook は 12 秒で切れる（9-8）。Jev に使えるのはその内側
-const JEV_TIMEOUT_MS = 8000;
+// 1 回の取り込みは最大 50 件を順に判定する。1 件が詰まっても Cron の実行時間に収まるよう短めに切る
+const JEV_TIMEOUT_MS = 20_000;
 
 const QUESTION = "it";
 
@@ -64,11 +64,12 @@ export async function judgeIt(
   ai: JevRunner,
   gatewayId: string,
   text: string,
+  timeoutMs: number = JEV_TIMEOUT_MS,
 ): Promise<Judgement> {
   try {
     const raw = await withTimeout(
       ai.run(JEV_MODEL, buildInput(text), { gateway: { id: gatewayId } }),
-      JEV_TIMEOUT_MS,
+      timeoutMs,
     );
     const parsed = jevResponse.safeParse(raw);
     if (!parsed.success)

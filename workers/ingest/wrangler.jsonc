@@ -3,7 +3,9 @@
   "name": "x-like-digest-ingest",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-30",
+  "workers_dev": false,
   "observability": { "enabled": true },
+  "triggers": { "crons": ["0 * * * *"] },
   "ai": { "binding": "AI", "remote": true },
   "vars": { "AI_GATEWAY_ID": "x-like-digest-jev" },
   "d1_databases": [
@@ -12,6 +14,12 @@
       "database_name": "x-like-digest",
       "database_id": "6e69ba2f-5fde-43d4-ac47-38a9939f61a9",
       "migrations_dir": "../../packages/shared/migrations"
+    },
+    {
+      "binding": "AUTH_DB",
+      "database_name": "x-like-digest-auth",
+      "database_id": "4943f880-fb4f-4a63-97eb-967606e2578c",
+      "migrations_dir": "migrations-auth"
     }
   ]
 }

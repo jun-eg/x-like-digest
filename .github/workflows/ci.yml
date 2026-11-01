@@ -1,5 +1,6 @@
 # CI — PR と main への push で、repo の文書の検査と、柵（hook・検査の手）の検査と、コードの検査（lint・型・テスト）を回す。
-# job 名（name:）はブランチ保護の必須ステータスに名指しされる。変えるときは保護の設定も直す。
+# job 名（name:）は main の ruleset「main の必須ステータス」（Settings → Rules）に名指しされる。変えるときは ruleset も直す。
+# 直さないと、その名前の check が出ないまま PR が merge できなくなる。
 name: ci
 
 on:

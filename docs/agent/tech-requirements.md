@@ -132,6 +132,14 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 
 想定外のフィールドは拒否する（FR-02.4）。`TweetEmbedCode` は取り込まない（FR-01.5）。Body の上限は 16 KiB（FR-02.3、初期設計値）。
 
+IFTTT の Applet は、トリガー X（Twitter）の「New liked tweet by you」、アクション Webhooks の「Make a web request」で作る（POST、Content Type `application/json`、Additional Headers に `Authorization: Bearer <IFTTT_SECRET>`）。トリガーを「New link by you」にすると `FirstLinkUrl` が使えないので選び間違えない。Body は本文を `<<<` と `>>>` で囲む。囲まないと、改行を含む投稿で JSON が壊れて 400 になる（9-8）。
+
+```
+{"text":"<<<{{Text}}>>>","author":"{{UserName}}","tweet_url":"{{LinkToTweet}}","first_url":"{{FirstLinkUrl}}","created_at":"{{CreatedAt}}"}
+```
+
+`CreatedAt` は ISO ではなく `October 31, 2026 at 06:51PM` の形で届く。
+
 ### 4-2. D1 の投稿（要件定義書 FR-04.2）
 
 | # | 項目 | 形式 | 必須 | 実体 | 在処 |
@@ -321,7 +329,7 @@ AI Gateway は前払いのクレジットで動く。残高が尽きると Jev �
 | 5 | Workers Free の CPU 10 ms に、本処理と保存が収まるか | 判定 5 の実測 | この文書 |
 | 6 | 【確定 2026-11-01】GitHub の保存先 `owner/repo`、ブランチ、トークンの発行方式。下の「9-6 の確定内容」 | 人の決定 | この文書 |
 | 7 | Jev と Claude の 1 日あたりの実費 | 判定 5 の請求 | この文書 |
-| 8 | IFTTT の Ingredient を JSON に差し込むときのエスケープ挙動と、Webhook の応答制限 12 秒の中で Jev と D1 保存が終わるか | 作業 4 の実機確認 | この文書（成立しない場合は上流の △ に戻る） |
+| 8 | 【確定 2026-11-01】IFTTT の Ingredient のエスケープ挙動と、Webhook の応答制限 12 秒。下の「9-8 の確定内容」 | 作業 4 の実機確認済み（未確認が 2 点残る） | この文書 |
 
 ### 9-2 の確定内容
 
@@ -341,10 +349,23 @@ AI Gateway は前払いのクレジットで動く。残高が尽きると Jev �
 - 保存先は `jun-eg/my-bias`（非公開リポジトリ、既定ブランチ `main`）。保存するブランチも `main`
 - トークンは fine-grained personal access token。対象リポジトリを `jun-eg/my-bias` だけに限り、権限は Contents の Read and write だけ（fine-grained PAT なので Metadata の Read-only が必ず付く。4-4 の表 6「対象リポジトリに限定した Contents の書込」）。Worker B の `GITHUB_TOKEN` に置く
 
+### 9-8 の確定内容
+
+2026-11-01 に、利用者が IFTTT Free の Applet を作り、deploy した Worker A（`https://x-like-digest-ingest.negima.workers.dev/webhooks/x-like`）に実機で流して確かめた。
+
+- エスケープ。Body を `{"text":"{{Text}}",...}` にすると、改行を 2 つ含む投稿（18:34）が 400 になった。ログに理由が出ないので応答の種類は直接見ていないが、他の項目は検査を通る値だったので invalid_json と判断した。`"text":"<<<{{Text}}>>>"` に変えると、改行を含む IT 系 2 件が保存され、D1 の text に改行が残った（`instr(text, char(10)) > 0` が 2 件とも 1）。IFTTT の Body 欄の説明は「Surround any text with <<< and >>> to escape the content (ex. to preserve line breaks).」。Body の全文は 4-1
+- 12 秒。19:34 の実行は IFTTT の activity で「Action ran」になり、時間切れにならなかった。所要時間そのものは測っていない
+- Ingredient。「New liked tweet by you」には Text・UserName・LinkToTweet・FirstLinkUrl・CreatedAt があり、4-1 の 5 項目すべてに対応する。「New link by you」では `{{FirstLinkUrl}}` が Unrecognized ingredient だった。最初にトリガーをこれと付け間違え、17:50 に 1 件 400 を出した
+- 判定 1。19:34 の確認でいいね 3 件がまとめて届いた。非 IT 系 1 件は 200 で保存されず、IT 系 2 件（`2116702728760205628`、`2116778869080691022`）が保存され、本番 D1 の `posts` は 2 行になった。終わりの判定の「1 行」は IT 系が 2 件届いたので文字どおりにならなかったが、「IT 系だけが重複なく溜まる」は満たした
+- 重複。IFTTT の再いいねは起こさず、curl で正しい secret を付けて保存済みと同じ tweet_url を POST すると 200 `{"status":"duplicate"}` で、`posts` は 2 行のまま。IFTTT の再送そのものは確かめていない
+- Free の制約。トリガーの確認は 1 時間に 1 回（Starter は 15 分、それ以上は 5 分）。溜まったいいねはまとめて届き、activity には最後の 1 件しか見えないことがある。1 回の実行で 120 credits（トリガー 100、アクション 20）。残りの credit と補充周期は未確認
+- 確かめていないこと。(a) リンクの無い投稿で `FirstLinkUrl` が空文字になり `first_url: ""` が zod の `url()` で 400 になるか（流していない。扱いは決めていない）。(b) 400 の理由がログに出ない点（#50 の範囲）
+
 ## 更新ログ
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
+| 2026-11-01 | 9-8 を確定（Body は本文を `<<<` `>>>` で囲む。12 秒に収まった。判定 1 は IT 系 2 件で 2 行）。4-1 に Applet の組み方と Body を足した | [ADR tech-requirements-0006](ADR/tech-requirements/0006-ifttt-real-device.md) |
 | 2026-11-01 | 9-2 の Jev 応答の包みを、zod で両方受けると決めた（作業 3、#43） | 無し（9-2 に残した「zod か実機か」の二択を、実機を待たない側に決めただけ） |
 | 2026-11-01 | 8 節の作業 10 を 10a（CI の `grep` と `wrangler secret list`。#52。依存 1）と 10b（ログの検査。#50。依存 9）の 2 行に分け、作業 11 の依存と 7 節の判定 5 の括弧をそれに合わせた。権限分離のバインディングの柵を、バインディングを触る作業 2〜7 の前に置くため | 無し（決定は動かさず、作業の切り方だけ直した） |
 | 2026-11-01 | ステータスを Draft から Fixed に上げた。7 節で 5-25〜5-27 と 5-29 を判定 1・2 から判定 5 に移し、権限分離の検査をマイルストーン 5（作業 10）で数えるようにした。8 節は動かしていない | 無し（決定は動かさず、測る時期を作業 10 に合わせただけ） |

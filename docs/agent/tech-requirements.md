@@ -311,12 +311,12 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 人の決定（2026-11-01）。
 
 - 保存先は `jun-eg/my-bias`（非公開リポジトリ、既定ブランチ `main`）。保存するブランチも `main`
-- トークンは fine-grained personal access token。対象リポジトリを `jun-eg/my-bias` だけに限り、権限は Contents の Read and write だけ（4-4 の表 6「対象リポジトリに限定した Contents の書込」）。Worker B の `GITHUB_TOKEN` に置く
-- 3 Worker は deploy 済みで、secret は 1 Worker に 1 本ずつ入っている（`wrangler secret list` で確認）。この確定は値を埋めただけで、既存の決定は覆していない
+- トークンは fine-grained personal access token。対象リポジトリを `jun-eg/my-bias` だけに限り、権限は Contents の Read and write だけ（fine-grained PAT なので Metadata の Read-only が必ず付く。4-4 の表 6「対象リポジトリに限定した Contents の書込」）。Worker B の `GITHUB_TOKEN` に置く
 
 ## 更新ログ
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
+| 2026-11-01 | 9-6 を確定（保存先・トークンの範囲）、2 節に secret 名と workers.dev サブドメイン | [ADR tech-requirements-0003](ADR/tech-requirements/0003-github-destination-and-secrets.md) |
 | 2026-11-01 | 2 節の実行環境と経路の Jev を、Workers AI のモデルから AI Gateway 経由の TypeSafe Jev に変更。9-2 を確定 | [ADR tech-requirements-0002](ADR/tech-requirements/0002-jev-via-ai-gateway.md) |
 | 2026-11-01 | 6-8 の検査のパッケージを `@cloudflare/vitest-plugin` に変更 | [ADR tech-requirements-0001](ADR/tech-requirements/0001-vitest-plugin.md) |

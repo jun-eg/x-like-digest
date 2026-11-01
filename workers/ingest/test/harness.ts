@@ -62,6 +62,10 @@ export class FakeX {
   likes: FakeLike[] = [];
   tokenStatus: TokenReply = 200;
   likesFailPages = new Set<number>();
+  likesFailReply: { status: number; body: unknown } = {
+    status: 503,
+    body: { title: "Service Unavailable" },
+  };
   likesBrokenPages = new Set<number>();
   oembedFail = new Set<string>();
   authorUrls = new Map<string, string>();
@@ -121,7 +125,9 @@ export class FakeX {
       const offset = Number(url.searchParams.get("pagination_token") ?? 0);
       const page = offset / 5 + 1;
       if (this.likesFailPages.has(page))
-        return Response.json({ title: "Service Unavailable" }, { status: 503 });
+        return Response.json(this.likesFailReply.body, {
+          status: this.likesFailReply.status,
+        });
       if (this.likesBrokenPages.has(page)) return Response.json({ data: "x" });
       const slice = this.likes.slice(offset, offset + 5);
       return Response.json({

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { posts } from "@x-like-digest/shared";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runIngest } from "../src/ingest";
 import {
   clock,
@@ -381,6 +381,67 @@ describe("5-3 取得の形と応答の検証", () => {
         `https://publish.x.com/oembed?url=https://x.com/i/status/${pid(2)}&omit_script=true`,
       ]);
       expect(hrefs(without.h)).toEqual(hrefs(withLink.h));
+    });
+  });
+});
+
+describe("X の失敗応答のログ", () => {
+  const logged = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.map((c) => JSON.parse(String(c[0])));
+
+  it("title・type・reason だけを出し、detail や登録先の URL は出さない", async () => {
+    const h = harness();
+    h.x.likes = newest(3);
+    h.x.likesFailPages.add(1);
+    h.x.likesFailReply = {
+      status: 403,
+      body: {
+        title: "Client Forbidden",
+        type: "https://api.twitter.com/2/problems/client-forbidden",
+        reason: "client-not-enrolled",
+        detail: `user ${pid(99)} の投稿は見られない（架空）`,
+        registration_url: "https://developer.x.com/x?secret=1",
+        client_id: "架空のクライアント",
+      },
+    };
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runIngest(h.env, h.deps);
+    const lines = logged(spy);
+    spy.mockRestore();
+
+    expect(lines).toContainEqual({
+      event: "ingest_skipped",
+      error_type: "http_403",
+      x_title: "Client Forbidden",
+      x_type: "https://api.twitter.com/2/problems/client-forbidden",
+      x_reason: "client-not-enrolled",
+    });
+    const text = JSON.stringify(lines);
+    expect(text).not.toContain(pid(99));
+    expect(text).not.toContain("secret=1");
+    expect(text).not.toContain("架空のクライアント");
+  });
+
+  it("想定外の文字を含む欄と JSON でない本文は出さない", async () => {
+    const h = harness();
+    h.x.likes = newest(3);
+    h.x.likesFailPages.add(1);
+    h.x.likesFailReply = {
+      status: 403,
+      body: {
+        title: `Forbidden for ${pid(98)}`,
+        type: 42,
+        reason: 'not "fixed"',
+      },
+    };
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runIngest(h.env, h.deps);
+    const lines = logged(spy);
+    spy.mockRestore();
+
+    expect(lines).toContainEqual({
+      event: "ingest_skipped",
+      error_type: "http_403",
     });
   });
 });

@@ -5,6 +5,7 @@
   "compatibility_date": "2026-10-30",
   "observability": { "enabled": true },
   "ai": { "binding": "AI", "remote": true },
+  "vars": { "AI_GATEWAY_ID": "x-like-digest-jev" },
   "d1_databases": [
     {
       "binding": "DB",

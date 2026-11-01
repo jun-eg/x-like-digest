@@ -1,0 +1,14 @@
+{
+  "name": "@x-like-digest/ingest",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "types": "wrangler types",
+    "check": "tsc -p .",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@x-like-digest/shared": "*",
+    "drizzle-orm": "^0.45.4"
+  }
+}

@@ -13,7 +13,10 @@
 
 ```
 git config core.hooksPath .githooks
+npm ci
 ```
+
+**`npm ci` で依存を入れておく。** 入っていないと pre-commit の `npm run check` が `biome: not found` で止まる。
 
 **これで commit のたびに [`.githooks/pre-commit`](.githooks/pre-commit) が走り、落ちる状態の commit は止まる**
 （何を回すかは hook を読む。中身は [`scripts/README.md`](scripts/README.md)）。**同じ検査が PR でも回る**（[`.github/workflows/ci.yml`](.github/workflows/ci.yml)）。
@@ -35,5 +38,5 @@ local の branch と worktree は消えない。
 ## 揃えてあるもの
 
 **Node は [`.node-version`](.node-version) の版を使う**（検査の手と CI が同じ版で回る）。
-**Dependabot が月 1 で GitHub Actions の更新 PR を 1 本作る**（[`.github/dependabot.yml`](.github/dependabot.yml)。`package.json` を置いたら npm も足す）。
+**Dependabot が月 1 で、GitHub Actions と npm の更新 PR を種類ごとに 1 本ずつ作る**（[`.github/dependabot.yml`](.github/dependabot.yml)）。
 **[`.editorconfig`](.editorconfig) が改行・字下げ（space・2）・文字コードを揃え、[`.vscode/extensions.json`](.vscode/extensions.json) が EditorConfig の拡張を勧める。**

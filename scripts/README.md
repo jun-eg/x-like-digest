@@ -35,7 +35,7 @@ node scripts/要約の検査.mjs --stamp docs/design-doc.md   # 見直した要�
 node scripts/秘密の検査.mjs      # ステージされた物を見る（pre-commit）
 ```
 
-**これは repo の文書ではなく、commit しようとしている物を見る手である。** ステージされた物の**名前**（`.env` ・ `creds.json` ・ `client_secret*.json` など）と**中身**
-（GitHub・AWS・Anthropic・Google のトークンや鍵の形、秘密鍵、手元の `.env` に書いた値そのもの）を見て、当たれば**ファイル名だけを挙げて**（値は出さない）1 で落ちる。
+**これは repo の文書ではなく、commit しようとしている物を見る手である。** ステージされた物の**名前**（`.env` ・ `.dev.vars` ・ `creds.json` ・ `client_secret*.json` など）と**中身**
+（GitHub・AWS・Anthropic・Google のトークンや鍵の形、秘密鍵、手元の `.env` と `.dev.vars` に書いた値そのもの）を見て、当たれば**ファイル名だけを挙げて**（値は出さない）1 で落ちる。
 `.gitignore` は `git add -f` で破れるので、ここでも止める。**検査は [`秘密の検査.test.mjs`](秘密の検査.test.mjs)**（`node --test "scripts/**/*.test.mjs"`。CI の job `hooks` が回す）。
 起こした経緯は [school-festival-shift#307](https://github.com/jun-eg/school-festival-shift/issues/307)（E2E の鍵と ID を手元に置くことになった）。

@@ -127,7 +127,7 @@ MVP はスコープ外に置いたどの仕組みにも依存しない。
 | --- | --- |
 | X のアカウントと、いいねを押す習慣 | 利用者が持っている |
 | IFTTT Free のアカウントと Applet | 利用者が導入時に作る |
-| Cloudflare のアカウント（Workers Free、D1 Free、Workers AI） | 利用者が持っている |
+| Cloudflare のアカウント（Workers Free、D1 Free、AI Gateway のクレジット） | 利用者が持っている。Jev（TypeSafe の `typesafe/jev`）は AI Gateway 経由で呼び、支払いは Cloudflare のクレジットに一括する |
 | 保存先の GitHub リポジトリと、そこに限定した書込トークン | 利用者が導入時に用意する |
 | Claude API キー | 利用者が持っている |
 
@@ -152,3 +152,4 @@ Jev の閾値、Workers Free の CPU 10 ms、Claude の入力上限、GitHub の
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
+| 2026-11-01 | 6 の前提を、Workers AI から AI Gateway のクレジットに変更（Jev は TypeSafe のモデル） | [ADR design-doc-0001](ADR/design-doc/0001-jev-via-ai-gateway.md) |

@@ -1,6 +1,11 @@
 // 秘密の検査の検査 — 通る形と止まる形。本物の秘密は 1 つも書かない（形に当たる文字列は、その場で組み立てる）。
 
 import assert from 'node:assert/strict'
+import { execFileSync, spawnSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import { knownValues, scan } from './秘密の検査.mjs'
 
@@ -19,6 +24,7 @@ test('通る形 — 普通のファイルと、空の雛形 .env.example', () =>
     scan([
       { path: 'src/a.ts', text: 'const x = 1' },
       { path: '.env.example', text: 'API_TOKEN=\n' },
+      { path: 'workers/ingest/.dev.vars.example', text: 'IFTTT_SECRET=\n' },
       { path: 'docs/a.md', text: '`refresh_token` は書かない。ghp_ で始まるものは貼らない' },
     ]),
     [],
@@ -26,7 +32,7 @@ test('通る形 — 普通のファイルと、空の雛形 .env.example', () =>
 })
 
 test('止まる形 — 名前', () => {
-  for (const name of ['.env', '.env.local', '.clasprc.json', 'creds.json', 'x/my-creds.json', 'client_secret_1.json']) {
+  for (const name of ['.env', '.env.local', '.dev.vars', '.dev.vars.staging', 'workers/ingest/.dev.vars', '.clasprc.json', 'creds.json', 'x/my-creds.json', 'client_secret_1.json']) {
     assert.equal(scan([{ path: name, text: '' }]).length, 1, name)
   }
 })
@@ -47,4 +53,36 @@ test('止まる形 — .env に書いた値そのもの（短いもの・コメ�
   )
   assert.equal(scan([{ path: 'a.md', text: 'id: 1AbCdEfGhIjKlMn' }], known).length, 1)
   assert.equal(scan([{ path: 'a.md', text: 'id: nothing' }], known).length, 0)
+})
+
+// 一時 repo で、検査の本体（ステージ → .dev.vars の値の照合 → 終了コード）を通しで回す。
+const script = fileURLToPath(new URL('./秘密の検査.mjs', import.meta.url))
+
+function runInTempRepo(devVarsText, stagedText, { brokenSymlink = false } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'secret-check-'))
+  try {
+    const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' })
+    git('init', '-q')
+    fs.mkdirSync(path.join(dir, 'workers/ingest'), { recursive: true })
+    fs.writeFileSync(path.join(dir, 'workers/ingest/.dev.vars'), devVarsText)
+    if (brokenSymlink) fs.symlinkSync(path.join(dir, 'nothing'), path.join(dir, '.dev.vars.broken'))
+    fs.writeFileSync(path.join(dir, 'notes.md'), stagedText)
+    git('add', 'notes.md')
+    const result = spawnSync('node', [script], { cwd: dir, encoding: 'utf8' })
+    return { status: result.status, output: result.stdout + result.stderr }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+test('止まる形 — workers/ingest/.dev.vars の値を含むファイルをステージすると exit 1（値は出さない）', () => {
+  const { status, output } = runInTempRepo('IFTTT_SECRET=zzzz-local-secret-1234\n', 'memo: zzzz-local-secret-1234\n')
+  assert.equal(status, 1)
+  assert.equal(output.includes('IFTTT_SECRET'), true)
+  assert.equal(output.includes('zzzz-local-secret-1234'), false)
+})
+
+test('通る形 — .dev.vars の値を含まなければ exit 0。壊れた symlink の .dev.vars* があっても落ちない', () => {
+  assert.equal(runInTempRepo('IFTTT_SECRET=zzzz-local-secret-1234\n', 'memo: nothing\n').status, 0)
+  assert.equal(runInTempRepo('IFTTT_SECRET=zzzz-local-secret-1234\n', 'memo: nothing\n', { brokenSymlink: true }).status, 0)
 })

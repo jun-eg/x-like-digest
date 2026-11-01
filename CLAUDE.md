@@ -35,3 +35,8 @@ git switch main && git pull
 
 **Claude Code の worktree 機能は、人がその場で頼むか、この `CLAUDE.md` のような指示があるときにしか使われない。**
 **毎回口で言うのをやめるために、ここに書いてある。**
+
+## Cloudflare の CLI
+
+**Cloudflare の CLI は wrangler を使う。`cf` は beta が明けるまで使わない**（理由は [`docs/agent/tech-requirements.md`](docs/agent/tech-requirements.md) の選定表）。
+`wrangler` skill は `wrangler.jsonc` が無いうちは `cf` へ誘導するが、従わない。

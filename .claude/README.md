@@ -22,6 +22,8 @@
 なぜ止めるのかと、jq + grep 版と比べて python3 を採った経緯は
 [issue #73](https://github.com/jun-eg/school-festival-shift/issues/73)。
 
+**`skills/wrangler/` と `skills/workers-best-practices/` は上流 [`cloudflare/skills`](https://github.com/cloudflare/skills) の commit `1a33048`（2026-10-31）をそのまま写したもの**（中身は書き換えない。`LICENSE` は上流の Apache-2.0）。更新は上流と diff を取って写し直す。
+
 ## 2 層あるのはなぜか、rebase が deny に無いのはなぜか
 
 `permissions.deny` は**前置一致**なので `git push --force origin foo` は止まるが

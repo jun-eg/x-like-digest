@@ -1,6 +1,5 @@
 # 依存の更新を月 1 で PR にする。PR は CI の必須チェックが通るまで merge できない。
 # PR の数を抑えるため、種類ごとに 1 本へまとめる（groups）。同時に開く PR は 1 本ずつ。
-# package.json を置いたら、同じ形で package-ecosystem: npm を足す。
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -10,4 +9,12 @@ updates:
     open-pull-requests-limit: 1
     groups:
       actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      npm:
         patterns: ["*"]

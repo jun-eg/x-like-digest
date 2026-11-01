@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: 06a827564c8587c9ec7e8afd8ae2d25251c68458
+source-hash: f2878aee4beb8710f57e91850199b7e95c519494
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト
@@ -10,9 +10,9 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 実行形態
 
-- Workers Free 3 本（ingest、orchestrator、summarizer）、D1 Free 1 本、Workers AI の Jev。常駐プロセスは無い
+- Workers Free 3 本（ingest、orchestrator、summarizer）、D1 Free 1 本、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`、Cloudflare のクレジットで支払う）。常駐プロセスは無い
 - 公開するのは ingest の `POST /webhooks/x-like` だけ。秘密は Worker ごとに 1 つずつ置き、2 つ以上持たせない
-- コードは 1 リポジトリに 3 つの wrangler プロジェクト。利用者本人が実装者なので開発者向けの道具を要求してよい
+- コードは 1 リポジトリに 3 つの wrangler プロジェクト。利用者本人が実装者なので開発者向けの道具を要求してよい。CLI は wrangler と `wrangler.jsonc` で、`cf` CLI は beta で secret 投入とログが未対応、dev と deploy も wrangler に委譲しているため採らない。beta が終わったら `cf migrate --dry-run` から見直す
 
 ## 規則
 
@@ -27,7 +27,7 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 - GitHub の内容一致は Git blob SHA-1 を手元で計算して応答の sha と比べる
 - 要約の形式検証は 4 つ。本文がある、見出し 4 本が順にある、空白を除いた文字数が 1,000〜1,300、本文中の X の URL がすべてバッチの投稿のもの
 - 言語は TypeScript。Web フレームワークは入れない。公開する口が 1 本で、B は Cron、C は RPC で動くので、ルーティングもミドルウェアも要らない
-- D1 は Drizzle で操作し、行の型はスキーマから出す。外から入る値は境界で zod で確かめ、型は z.infer から出す。as による読み替えは使わない。Service Binding は RPC、Claude は公式 SDK でツール無し、検査は vitest の Workers プール
+- D1 は Drizzle で操作し、行の型はスキーマから出す。外から入る値は境界で zod で確かめ、型は z.infer から出す。as による読み替えは使わない。Service Binding は RPC、Claude は公式 SDK でツール無し、検査は vitest と Workers プール（`@cloudflare/vitest-plugin`。旧名の vitest-pool-workers は非推奨）
 
 ## 完了の測り方
 
@@ -37,8 +37,8 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 開いていること
 
-- 値だけ未確定の △ が 8 件。Jev の閾値とモデル ID、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、GitHub の保存先、実費、IFTTT のエスケープと 12 秒
-- IFTTT が成立しなければ上流の △ に戻る
+- 値だけ未確定の項目が 6 件。Jev の閾値、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、実費、IFTTT のエスケープと 12 秒
+- GitHub の保存先は `jun-eg/my-bias` の `main`、トークンは同リポジトリだけに限った Contents の書込（確定）。secret の名前は `IFTTT_SECRET`（A）、`GITHUB_TOKEN`（B）、`ANTHROPIC_API_KEY`（C）。IFTTT が成立しなければ上流の未確定に戻る
 
 ## 根拠の在処
 

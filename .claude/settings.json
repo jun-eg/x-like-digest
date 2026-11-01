@@ -1,9 +1,7 @@
 {
   "language": "japanese",
   "permissions": {
-    "allow": [
-      "Bash(gh pr merge:*)"
-    ],
+    "allow": ["Bash(gh pr merge:*)"],
     "deny": [
       "Bash(git push --force:*)",
       "Bash(git push --force-with-lease:*)",

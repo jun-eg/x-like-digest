@@ -76,12 +76,12 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 
 | 決めること | 決めたこと | 縛っている上流の行 |
 | --- | --- | --- |
-| 実行環境 | Cloudflare Workers（Free）3 本、D1（Free）1 本、Workers AI（Jev）。常駐プロセスを持たない | Design Doc 2・5「固定費 $0、自宅サーバー無し」 |
+| 実行環境 | Cloudflare Workers（Free）3 本、D1（Free）1 本、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`）。Jev は Workers AI のモデルではなく、支払いは Cloudflare のクレジットに一括する。常駐プロセスを持たない | Design Doc 1・5「固定費 $0、自宅サーバー無し」 |
 | 公開面 | Worker A の `POST /webhooks/x-like` だけ。Worker B・C は公開ルートも `workers.dev` も無効 | 6「入口」「権限分離」 |
-| 秘密の置き場 | IFTTT の共有シークレットは Worker A、GitHub トークンは Worker B、Claude API キーは Worker C に、それぞれ Cloudflare Secret として置く。1 つの Worker に 2 つ以上置かない | 6「権限分離」 |
-| セットアップに要求するもの | Node（`.node-version` の版）、wrangler、Cloudflare・IFTTT・GitHub・Claude API の各アカウント。IFTTT の Applet と GitHub のリポジトリ・トークンは利用者が導入時に作る | 6「前提にしている『すでにあるもの』」 |
+| 秘密の置き場 | IFTTT の共有シークレットは Worker A、GitHub トークンは Worker B、Claude API キーは Worker C に、それぞれ Cloudflare Secret として置く。名前は順に `IFTTT_SECRET`、`GITHUB_TOKEN`、`ANTHROPIC_API_KEY`。1 つの Worker に 2 つ以上置かない | 6「権限分離」 |
+| セットアップに要求するもの | Node（`.node-version` の版）、wrangler、Cloudflare・IFTTT・GitHub・Claude API の各アカウント。Cloudflare アカウントの `workers.dev` サブドメイン（ダッシュボードで登録する。CLI だけではできず、未登録だと deploy が通らない）。IFTTT の Applet と GitHub のリポジトリ・トークンは利用者が導入時に作る | 6「前提にしている『すでにあるもの』」 |
 | コードの置き場 | このリポジトリ 1 本。`workers/ingest`、`workers/orchestrator`、`workers/summarizer` の 3 プロジェクト | 6「権限分離」（→ 6-2） |
-| 投稿本文が通る経路 | X → IFTTT → Worker A → Workers AI（Jev）→ D1 → Worker B → Worker C → Claude API。保存されるのは D1（要約まで）と GitHub（ダイジェストのみ）。ログには通さない | 6「運用」、Design Doc 5「原文全文を残す」の却下 |
+| 投稿本文が通る経路 | X → IFTTT → Worker A → AI Gateway（Jev）→ D1 → Worker B → Worker C → Claude API。保存されるのは D1（要約まで）と GitHub（ダイジェストのみ）。ログには通さない | 6「運用」、Design Doc 5「原文全文を残す」の却下 |
 | 時刻 | 内部は UTC で持つ。JST への変換はバッチの日付（ファイル名とジョブ ID）を決めるときだけ行う | 3-2、3-3 |
 
 ## 3. 業務の規則
@@ -221,12 +221,13 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | 5 | Claude の呼び出し | `@anthropic-ai/sdk` の Messages API、ツール無し | Workers の fetch で動き、型が付く。`tools` を渡さないことをコードで示せる | 生 fetch: 応答の型を自分で書く |
 | 6 | GitHub の内容一致 | Git blob SHA-1 を Worker 側で計算し、GET の `sha` と比べる | 本文を Base64 から戻して比較するより短く、既存ファイルの SHA 取得と同じ値で照合できる。CPU も小さい | 本文の文字列比較: Base64 の復号が要り、改行の揺れで偽の不一致が出る |
 | 7 | 文字数の数え方 | 空白と改行を除いた Unicode コードポイント数 | 「約 1,000〜1,300 字」を判定できる 1 つの定義にする。Markdown の記号は含める | 書記素で数える: 日本語では差が出ず、実装が重い。バイト数: 日本語で 3 倍になり目安と対応しない |
-| 8 | 検査 | vitest と `@cloudflare/vitest-pool-workers`。外部（Jev、Claude、GitHub、IFTTT）は差し替える | Workers の実行環境で D1 と Service Binding を含めて動かせる。5 の判定の大半が「差し替えて回数を数える」で書ける | 実 API を叩く検査: 費用が掛かり、日付と状態に依存して再現しない |
+| 8 | 検査 | vitest と `@cloudflare/vitest-plugin`。外部（Jev、Claude、GitHub、IFTTT）は差し替える | Workers の実行環境で D1 と Service Binding を含めて動かせる。5 の判定の大半が「差し替えて回数を数える」で書ける | 実 API を叩く検査: 費用が掛かり、日付と状態に依存して再現しない。改名前の旧パッケージ: npm で非推奨（`vitest-plugin` に改名済みで更新されない）。同梱の wrangler が 4.124 で、ルートの 4.156 と `compatibility_date` 2026-10-30 に対して古い |
 | 9 | 秘密の投入 | `wrangler secret put` | ファイルに残らない。`.gitignore` と秘密の検査が二重に止める | `.dev.vars` を本番にも使う: 誤って commit する経路が残る |
 | 10 | 言語 | TypeScript | Workers の標準の言語で、wrangler・Service Binding の RPC・D1 のバインディングに型が付く。3 Worker で共有する型を 1 か所に置ける | JavaScript: 境界で確かめた値の型が後段に伝わらず、5 の仕様の判定が弱くなる |
 | 11 | Web フレームワーク | 入れない。Workers 標準の `fetch` ハンドラと `Request` / `Response` で書く | 公開する口が Worker A の `POST /webhooks/x-like` 1 本で、B は Cron、C は RPC で動く。ルーティングは if 文 1 つで済み、ミドルウェアで共通化するルートが無い。依存と CPU 10 ms の中の層を増やす理由が無い | Hono: 軽いが、得るもの（複数ルートの振り分け、ミドルウェア、静的配信、CORS）はどれも公開面を広げる方向で、Design Doc 6 のスコープ外に当たる。公開パスが 3 本以上になるか、複数ルートに共通で認証やログを掛けたくなったら、この行に戻って入れ直す |
 | 12 | D1 の操作 | Drizzle。スキーマを TypeScript で書き、drizzle-kit が生成したマイグレーション SQL を wrangler で D1 に流す | 行の型がスキーマから出るので、列名の誤りが型検査で止まる。バッチ確定（5-8）と状態の条件付き更新（5-10）は SQL 1 文で書きたいが、Drizzle のクエリビルダはその形で書ける。軽く、CPU 10 ms にほぼ響かない | 素の SQL: `all<Post>()` のように手で書いた型への読み替えになり、列名を誤っても型検査を通る。テーブルの形を SQL と型の 2 か所に持つ。Prisma: クエリエンジンが重く、Workers Free の CPU とバンドルの大きさに不利で、2 テーブルには過剰 |
 | 13 | 外から入る値の型 | 境界で zod で確かめ、型は `z.infer` から出す。D1 の行は Drizzle のスキーマから出す。`as` による読み替えと手で書いた型の重ね合わせを使わない | 型が 1 か所から出るので、形が変わったときに直す場所が 1 つになる。境界は IFTTT の受信 JSON、Jev の応答、GitHub の応答の 3 つ。Claude の応答は SDK の型と 5-13 の形式検証で受ける。Worker B と C の間は共有する TypeScript の型だけで、同じアカウント内なので実行時の検査は足さない | drizzle-zod で D1 のスキーマから受信 JSON の zod を生成する: 受信 JSON と D1 の行は形が違う（`created_at` と `source_created_at`、`post_id` は URL から作る）ので、1 つの定義から両方を出すと無理が出る |
+| 14 | CLI と設定ファイル | wrangler と `wrangler.jsonc` | `cf` CLI は beta（2026-09-28 開始）で、本プロジェクトが使う操作の一部が未対応。wrangler は GA で、D1 のマイグレーション、`wrangler secret put`（9）、ログの stream、vitest のプール（8）がそのまま使える。設定が `wrangler.jsonc` の 1 本で済む | `cf` CLI と `cloudflare.config.ts`: 単一 secret の投入とログの stream が未対応（9 の手が使えない）。TypeScript の Worker では dev と deploy を wrangler に委譲していて、`cf` だけでは完結しない。beta の間は設定の形が変わり得る。vitest のプールが wrangler の設定を読むので、設定が 2 本になる。戻る条件は `cf` の beta 終了で、そのとき `cf migrate --dry-run` から始める |
 
 ## 7. 検証と完了の測り方
 
@@ -286,15 +287,36 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | # | 何が決まっていないか | 何が分かれば決まるか | 行き先（この文書／上流） |
 | --- | --- | --- | --- |
 | 1 | Jev の閾値。初期値は 0.6（要件定義書 FR-03.3） | 日本語と英語の技術投稿を数十件流した判定結果 | この文書 |
-| 2 | Workers AI での Jev のモデル ID と、`noul` 型の質問を送る呼び出しの形 | Cloudflare のモデルページとバインディングの実機確認 | この文書 |
+| 2 | 【確定 2026-11-01】Jev のモデル ID と呼び出しの形。下の「9-2 の確定内容」 | 実機確認済み | この文書 |
 | 3 | 1 バッチの入力上限。Claude の文脈長と、何件を超えたら失敗扱いにするか | Fable 5.1 の入力上限と、1 投稿あたりの平均トークン数の実測 | この文書 |
 | 4 | 文字数 1,000〜1,300 に収めるプロンプトの実体 | 実機で数回生成した結果の文字数分布 | この文書 |
 | 5 | Workers Free の CPU 10 ms に、本処理と保存が収まるか | 判定 5 の実測 | この文書 |
-| 6 | GitHub の保存先 `owner/repo`、ブランチ、トークンの発行方式 | 利用者が導入時に決める | この文書 |
+| 6 | 【確定 2026-11-01】GitHub の保存先 `owner/repo`、ブランチ、トークンの発行方式。下の「9-6 の確定内容」 | 人の決定 | この文書 |
 | 7 | Jev と Claude の 1 日あたりの実費 | 判定 5 の請求 | この文書 |
 | 8 | IFTTT の Ingredient を JSON に差し込むときのエスケープ挙動と、Webhook の応答制限 12 秒の中で Jev と D1 保存が終わるか | 作業 4 の実機確認 | この文書（成立しない場合は上流の △ に戻る） |
+
+### 9-2 の確定内容
+
+2026-11-01 に、`node_modules/.bin/wrangler dev`（remote の AI バインディング）で動かした一時 Worker から、`env.AI.run` で 4 回呼んで確かめた（Cloudflare の docs は `https://developers.cloudflare.com/ai/models/typesafe/jev/`）。
+
+- モデル ID は `typesafe/jev`。応答の `model` は `jev-1.13.0`。人の決定（2026-11-01）で別名の `typesafe/jev` を採る。カタログには `typesafe/jev-1.13.0` と `typesafe/jev-1.14.0` がある。別名が 1.14 へ移ると 0.6 を確かめていない版で判定することになるので、応答の `model` が `jev-1.13.0` から変わったら閾値（9-1）を見直す
+- 呼び方は `env.AI.run("typesafe/jev", input, { gateway: { id } })`。Worker A の AI バインディングをそのまま使い、TypeSafe の API キーも Cloudflare の API トークンも Worker A に置かない。gateway ID は `x-like-digest-jev`（Worker A の `vars` の `AI_GATEWAY_ID`。秘密ではない）。gateway 指定なしでも同じ応答が返ったが、gateway を指定すれば使用量がこの gateway に残るので指定する
+- 入力は `{ state: <判定する本文>, questions: { <名前>: { type: "noul", instructions: <true/false の質問>, criteria: { true: <真の基準>, false: <偽の基準> } } } }`
+- 応答は `answers.<名前> = { type: "noul", noul: <0〜1> }`、`model`、`usage`（`input_tokens`、`output_tokens`）。実機で `wrangler dev` から受けた値は、`{ "state": "Completed", "result": { この応答 } }` に包まれていた。docs の例に包みは無い。deploy した Worker で包みが付くかは未確認で、Worker A の作業 3 で zod が両方を受けるか実機で決める
+- `noul` は true である確率。実機の値は、IT の投稿（Workers と D1）0.99、Rust の借用チェッカー 0.99、学園祭のたこ焼き 0.01。閾値は `noul >= 0.6` なら保存、未満なら捨てる。0.6 付近の投稿は今回見ておらず、閾値の実測は 9-1 のまま
+- 1 件の使用量は入力約 360 トークン（質問の分を含む）、出力 21 トークンで、docs の単価（入力 1M トークンあたり $0.042）なら 1 件あたり約 $0.000015
+
+### 9-6 の確定内容
+
+人の決定（2026-11-01）。
+
+- 保存先は `jun-eg/my-bias`（非公開リポジトリ、既定ブランチ `main`）。保存するブランチも `main`
+- トークンは fine-grained personal access token。対象リポジトリを `jun-eg/my-bias` だけに限り、権限は Contents の Read and write だけ（fine-grained PAT なので Metadata の Read-only が必ず付く。4-4 の表 6「対象リポジトリに限定した Contents の書込」）。Worker B の `GITHUB_TOKEN` に置く
 
 ## 更新ログ
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
+| 2026-11-01 | 9-6 を確定（保存先・トークンの範囲）、2 節に secret 名と workers.dev サブドメイン | [ADR tech-requirements-0003](ADR/tech-requirements/0003-github-destination-and-secrets.md) |
+| 2026-11-01 | 2 節の実行環境と経路の Jev を、Workers AI のモデルから AI Gateway 経由の TypeSafe Jev に変更。9-2 を確定 | [ADR tech-requirements-0002](ADR/tech-requirements/0002-jev-via-ai-gateway.md) |
+| 2026-11-01 | 6-8 の検査のパッケージを `@cloudflare/vitest-plugin` に変更 | [ADR tech-requirements-0001](ADR/tech-requirements/0001-vitest-plugin.md) |

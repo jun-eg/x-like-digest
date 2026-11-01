@@ -1,6 +1,6 @@
 ---
 source: agent/ADR/tech-requirements/0009-x-auth-oembed.md
-source-hash: dece52bcc828311e809519bb99794ff05ee72763
+source-hash: b7d8de45e222c2b88cc727462c1669d2100daf34
 ---
 
 # ADR tech-requirements-0009 の要約: X の認証情報の持ち方が仮のままで、最新の refresh token を D1 に置き、oEmbed は投稿者名だけに使う形で確定した

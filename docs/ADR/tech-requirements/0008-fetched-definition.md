@@ -1,6 +1,6 @@
 ---
 source: agent/ADR/tech-requirements/0008-fetched-definition.md
-source-hash: 4dfbb05714bf2ea02140d1c5daf058d216618cb5
+source-hash: 416191a8ba7884cc952533fb8c65b4053813eda9
 ---
 
 # ADR tech-requirements-0008 の要約: 「取得済み」を D1 の有無で決められず、前回の上位 5 件の投稿 ID に行き当たるまでめくる形で確定した

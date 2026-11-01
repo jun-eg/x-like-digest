@@ -107,6 +107,7 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | 同じ `post_id` を複数回受信 | 2 回目以降は保存せず 2xx を返す。IFTTT の再送を想定する | 要件定義書 FR-02.6・§7.1（記録） |
 | `tweet_url` のホストが `twitter.com` | `x.com` と同じ正規ホストとして受ける。それ以外のホストは 400 | 要件定義書 FR-02.5（記録） |
 | Jev が時間切れ・失敗・形式不正 | 保留せず捨てて 2xx を返す。再試行は求めない | 要件定義書 FR-03.5（記録） |
+| AI Gateway の残高切れ（`AiGatewayError: 2021: Insufficient AI Gateway credits`） | 上の行と同じ。D1 に書かず 2xx を返し、再送を求めない。残高切れ専用の分岐も通知も持たない。気づく手は「その日のダイジェストが届かない」こと（5 節の「残高切れの扱い」） | 要件定義書 FR-03.5（記録）、人の決定（2026-11-01）、ADR tech-requirements-0004 |
 | 要約の入力が Claude の上限を超える | バッチを失敗扱いで捨てる。一部だけ切り捨てて要約しない | 要件定義書 FR-06.12（記録） |
 | GitHub の `Retry-After` が期限（翌日 09:00 UTC）を超える | 次回は期限ちょうどにして最終試行とし、それでも失敗なら捨てる | Design Doc 6「再試行」、要件定義書 FR-08（記録） |
 | 保存の応答が失われた（タイムアウト） | 同じパスを GET して内容一致なら成功扱い、不一致なら競合、無ければ失敗として再試行 | 要件定義書 FR-07.6・FR-08（記録） |
@@ -186,7 +187,7 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | 3 | JSON を検証 | Content-Type が `application/json` でなければ 415、Body が 16 KiB を超えれば 413、4-1 の形に合わなければ 400。想定外フィールドも 400 | 自動テストで各ケースを 1 件ずつ送る |
 | 4 | `tweet_url` を厳密に解析 | 4-1 の 3 の条件を URL 解析で判定する。前方一致ではない。`post_id` は数字文字列のまま D1 に入る | 自動テストに `https://x.com.evil.example/…`、`https://x.com/a/status/abc` を含めて 400 を数える |
 | 5 | Jev で IT 系だけを残す | Jev の `noul` 型の true/false 質問で判定し、スコアが閾値以上なら保存、未満なら捨てて 2xx | 自動テストでは Jev を差し替えて両方の分岐を通す。実機は 7 の判定 1 |
-| 6 | 判定失敗は捨てる | Jev の時間切れ・例外・形式不正で D1 に書かず 2xx を返す。再送を求めない | 自動テストで Jev を失敗させて D1 の件数を数える |
+| 6 | 判定失敗は捨てる | Jev の時間切れ・例外・形式不正で D1 に書かず 2xx を返す。再送を求めない。例外には AI Gateway の残高切れ（`2021`）を含む | 自動テストで Jev を失敗させて D1 の件数を数える。`2021` の `AiGatewayError` を投げさせた場合も含める |
 | 7 | 重複は冪等 | 同じ `post_id` を 2 回送っても D1 は 1 行。2 回目も 2xx | 自動テストで同じ Body を 2 回送って `COUNT(*)` を取る |
 | 8 | 18:00 JST に未処理を 1 バッチに確定 | ジョブ ID は JST 日付。確定は 1 文の `UPDATE posts SET batch_id = ? WHERE batch_id IS NULL AND received_at <= ?`（? は当日 09:00:00 UTC）で行う | 自動テストで 09:00 UTC の前後に `received_at` を置いた投稿を用意し、前だけが付くことを数える |
 | 9 | 0 件なら何もしない | 確定件数が 0 ならジョブを `SKIPPED` にし、Worker C を呼ばず GitHub にも書かない | 自動テストで Worker C と GitHub の呼び出し回数が 0 であることを数える |
@@ -209,6 +210,25 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 | 26 | Worker B は GitHub トークンだけを持つ | Worker B の wrangler 設定に Claude API キーが無い | 同上 |
 | 27 | Claude にツールを与えない | Worker C の Claude 呼び出しに `tools` パラメータが無い。生成テキストを文字列としてだけ扱い、評価・実行・SQL に埋め込まない | コードレビューと、Claude を差し替えた自動テストで要求 Body を照合する |
 | 28 | ログに本文と秘密を含めない | ログは JSON 1 行で、項目はジョブ ID、件数、エラー種別、HTTP ステータス、試行回数に限る。`text`、Markdown、`Authorization`、API キーは出さない | 自動テストで全経路を流し、ログ出力に本文の一部と秘密が含まれないことを `grep` で数える |
+
+### 残高切れの扱い
+
+AI Gateway は前払いのクレジットで動く。残高が尽きると Jev の呼び出しが `2021: Insufficient AI Gateway credits` を返す（2026-11-01 の実機。9-2）。無人運用なので、扱いと気づく手を決めた。人の決定（2026-11-01）。
+
+- 扱い: 5-6 の「判定失敗」と同じ。投稿は D1 に書かず捨て、IFTTT には 2xx を返す。再送を求めない。要件定義書 FR-03.5（保留せず捨てる）は変えない
+- 気づく手: 新しい仕組みを作らない。その日のダイジェストが届かないことで、利用者本人が気づく
+- 限界 (a): 日の途中で残高が尽きると、尽きる前に受けた投稿だけでダイジェストができる。捨てた件数は分からない
+- 限界 (b): いいねが 0 件の日はダイジェストを作らない（規則 7、要件定義書 FR-05.6）。残高切れで全部捨てた日と見分けがつかない
+
+却下した案:
+
+| 案 | 却下の理由 |
+| --- | --- |
+| 未判定のまま D1 に保留し、残高が戻ったら判定し直す | FR-03.5「保留せず捨てる」と食い違う。上流から変えることになる |
+| `2021` のときだけ 5xx を返し、IFTTT の再送に任せる | IFTTT の再送の回数と間隔を確かめておらず、残高が戻るまで持つとは限らない。5-6 の「再送を求めない」も変わる |
+| Cloudflare 側の通知 | docs（Unified Billing ほか）に前払いクレジットの残高通知が見当たらない。あるのは Auto top-up と、上限で止める Spend limits（429）。changelog 2026-06-04 の budget alerts が前払いクレジットに効くかは docs から読めない |
+| メール（Email Service の `send_email` binding） | 確認済みアドレス宛は Free でも無料だが、送信元に Email Service へ登録した Cloudflare DNS のドメインが要る。独自ドメインが前提に増える |
+| GitHub に別ファイルを置く、ダイジェストに注記する、GitHub issue を立てる | 「要約がなければ気づく」ので今回は採らない。注記は 5-13 の見出し・文字数の検査と規則 7 とぶつかる。issue は 9-6 のトークン権限を広げる |
 
 ## 6. 技術選定とトレードオフ
 
@@ -317,6 +337,7 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
+| 2026-11-01 | AI Gateway の残高切れ（`2021`）の扱いを 3 節・5-6・5 節に追記。5-6 の例外に含め、新しい通知は作らない | [ADR tech-requirements-0004](ADR/tech-requirements/0004-ai-gateway-credits-exhausted.md) |
 | 2026-11-01 | 9-6 を確定（保存先・トークンの範囲）、2 節に secret 名と workers.dev サブドメイン | [ADR tech-requirements-0003](ADR/tech-requirements/0003-github-destination-and-secrets.md) |
 | 2026-11-01 | 2 節の実行環境と経路の Jev を、Workers AI のモデルから AI Gateway 経由の TypeSafe Jev に変更。9-2 を確定 | [ADR tech-requirements-0002](ADR/tech-requirements/0002-jev-via-ai-gateway.md) |
 | 2026-11-01 | 6-8 の検査のパッケージを `@cloudflare/vitest-plugin` に変更 | [ADR tech-requirements-0001](ADR/tech-requirements/0001-vitest-plugin.md) |

@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: d3b7bc9f10f35401f7993f55611fe5cf08111739
+source-hash: eea9a6c81094f0031f29d93101b600dead8cf604
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト
@@ -10,8 +10,8 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 実行形態
 
-- Workers Free 3 本（ingest、orchestrator、summarizer）、D1 Free 1 本、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`、Cloudflare のクレジットで支払う）。常駐プロセスは無い
-- 入口は ingest の Cron（毎時）が X の API で本人のいいねを新しい順に 5 件ずつ、前回の取得で上位にあった 5 件の投稿 ID に行き当たるまで取りに行く形で（最大 10 ページ。当たらなければ止める印を D1 に立てて定期の取得を止める。初回は覚えるだけ）、どの Worker にも公開ルートは無い。投稿者名は IT 系と判定した投稿だけ oEmbed で引く。秘密は Worker ごとに 1 つずつ置き、2 つ以上持たせない（ingest は X の認証情報。名前と数は仮）。ingest は加えて AI バインディングと D1、orchestrator は D1 と summarizer への Service Binding、summarizer はバインディング無し
+- Workers Free 3 本（ingest、orchestrator、summarizer）、D1 Free 2 本（投稿用と、ingest だけに結ぶ X の認証用）、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`、Cloudflare のクレジットで支払う）。常駐プロセスは無い
+- 入口は ingest の Cron（毎時）が X の API で本人のいいねを新しい順に 5 件ずつ、前回の取得で上位にあった 5 件の投稿 ID に行き当たるまで取りに行く形で（最大 10 ページ。当たらなければ止める印を D1 に立てて定期の取得を止める。初回は覚えるだけ）、どの Worker にも公開ルートは無い。投稿者名は IT 系と判定した投稿だけ oEmbed で引き、リンクは取得した応答から取る。各 Worker は自分の外部サービスの認証情報だけを秘密に持つ（ingest は X の 3 本で、refresh token・クライアント ID・user id。client secret は要らない。公開リポジトリに載せないので `vars` には置かない。refresh token は更新のたびに替わるので最新の値は ingest だけに結ぶ認証用の D1 に置き、Secret は種にする）。ingest は加えて AI バインディングと D1、orchestrator は D1 と summarizer への Service Binding、summarizer はバインディング無し
 - コードは 1 リポジトリに 3 つの wrangler プロジェクト。利用者本人が実装者なので開発者向けの道具を要求してよい。CLI は wrangler と `wrangler.jsonc` で、`cf` CLI は beta で secret 投入とログが未対応、dev と deploy も wrangler に委譲しているため採らない。beta が終わったら `cf migrate --dry-run` から見直す
 
 ## 規則
@@ -21,7 +21,7 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 仕様と選定
 
-- 仕様は 29 行。入口の 1〜4 は、Cron だけで公開ルートが無いこと、X の認証の失敗、応答の検証、`tweet_url` の解析を見る。各行に「何を見れば満たしたと分かるか」と判定の手を付けた。権限分離の判定は 2 本で、設定にバインディングが無いこと（CI の `grep`）と、`wrangler secret list` の名前が 1 本だけであること（人が手元で。secret は設定ファイルに出ない）。作業の順序は、済んだ骨組み・CI・D1・deploy を作業 1 の実績とし、再 deploy と本番 D1 への適用を依存に持つ
+- 仕様は 29 行。入口の 1〜4 は、Cron だけで公開ルートが無いこと、X の認証の失敗、応答の検証、`tweet_url` の解析を見る。各行に「何を見れば満たしたと分かるか」と判定の手を付けた。権限分離の判定は 2 本で、設定にバインディングが無いこと（CI の `grep`）と、`wrangler secret list` の名前が決めた本数だけであること（人が手元で。secret は設定ファイルに出ない）。作業の順序は、済んだ骨組み・CI・D1・deploy を作業 1 の実績とし、再 deploy と本番 D1 への適用を依存に持つ
 - orchestrator の Cron は `*/10 * * * *` の 1 本で、期限切れの処分、再試行、本処理の順に行う（ingest の毎時と合わせて 2 本）。18:00 の発火が落ちても次の 10 分で拾える
 - 次に試す時刻はジョブが持つ。1〜6 回目は開始 + 10 分 × 回数、7 回目以降は 60 分おき、期限は翌日 09:00 UTC
 - GitHub の内容一致は Git blob SHA-1 を手元で計算して応答の sha と比べる
@@ -37,8 +37,8 @@ Design Doc の判断を、Cloudflare Workers 3 本と D1 で実装できる要�
 
 ## 開いていること
 
-- 値だけ未確定の項目が 5 件。Jev の閾値、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、Jev と Claude の実費。入口が替わって、X の API の実額、soft guarantee と料金の変動、X の認証情報の持ち方、oEmbed の引き方が増えた。「取得済み」の定義は確定した（件数 5 は実装者の判断。止まった後の再開は利用者が D1 の印を消す）。前の入口の実機の確定（9-8）は取り消した
-- GitHub の保存先は `jun-eg/my-bias` の `main`、トークンは同リポジトリだけに限った Contents の書込（確定）。secret の名前は `X_REFRESH_TOKEN`（A、仮）、`GITHUB_TOKEN`（B）、`ANTHROPIC_API_KEY`（C）。
+- 値だけ未確定の項目が 5 件。Jev の閾値、1 バッチの入力上限、プロンプトの実体、CPU 10 ms に収まるか、Jev と Claude の実費。入口が替わって、X の API の実額、soft guarantee と料金の変動が増えた。「取得済み」の定義（件数 5 は実装者の判断。止まった後の再開は利用者が D1 の印を消す）と、X の認証情報の持ち方、oEmbed の引き方は確定した（外部リンクの `entities` の実機は判定 1 の実機で見る）。前の入口の実機の確定（9-8）は取り消した
+- GitHub の保存先は `jun-eg/my-bias` の `main`、トークンは同リポジトリだけに限った Contents の書込（確定）。secret の名前は `X_REFRESH_TOKEN`・`X_CLIENT_ID`・`X_USER_ID`（A）、`GITHUB_TOKEN`（B）、`ANTHROPIC_API_KEY`（C）。
 
 ## 根拠の在処
 

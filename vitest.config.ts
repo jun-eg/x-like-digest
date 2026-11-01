@@ -41,13 +41,18 @@ type AuxiliaryWorker = Awaited<ReturnType<typeof summarizerWorker>>;
 // マイグレーションは本番と同じ SQL を使う。置き場は wrangler.jsonc の migrations_dir と同じ
 const migrations = await readD1Migrations("./packages/shared/migrations");
 
-const worker = (name: string, workers: AuxiliaryWorker[] = []) => ({
+// secret は wrangler.jsonc に出ないので、テストだけの値をここで渡す
+const worker = (
+  name: string,
+  workers: AuxiliaryWorker[] = [],
+  bindings: Record<string, string> = {},
+) => ({
   plugins: [
     cloudflareTest({
       // ingest の AI は認証無しで接続に失敗するので、リモートのバインディングは繋がない
       remoteBindings: false,
       wrangler: { configPath: configPath(name) },
-      miniflare: { workers },
+      miniflare: { workers, bindings },
     }),
   ],
   test: {
@@ -60,7 +65,7 @@ const worker = (name: string, workers: AuxiliaryWorker[] = []) => ({
 export default defineConfig({
   test: {
     projects: [
-      worker("ingest"),
+      worker("ingest", [], { IFTTT_SECRET: "test-secret" }),
       worker("orchestrator", [await summarizerWorker()]),
       worker("summarizer"),
     ],

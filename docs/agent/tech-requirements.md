@@ -330,7 +330,7 @@ AI Gateway は前払いのクレジットで動く。残高が尽きると Jev �
 - モデル ID は `typesafe/jev`。応答の `model` は `jev-1.13.0`。人の決定（2026-11-01）で別名の `typesafe/jev` を採る。カタログには `typesafe/jev-1.13.0` と `typesafe/jev-1.14.0` がある。別名が 1.14 へ移ると 0.6 を確かめていない版で判定することになるので、応答の `model` が `jev-1.13.0` から変わったら閾値（9-1）を見直す
 - 呼び方は `env.AI.run("typesafe/jev", input, { gateway: { id } })`。Worker A の AI バインディングをそのまま使い、TypeSafe の API キーも Cloudflare の API トークンも Worker A に置かない。gateway ID は `x-like-digest-jev`（Worker A の `vars` の `AI_GATEWAY_ID`。秘密ではない）。gateway 指定なしでも同じ応答が返ったが、gateway を指定すれば使用量がこの gateway に残るので指定する
 - 入力は `{ state: <判定する本文>, questions: { <名前>: { type: "noul", instructions: <true/false の質問>, criteria: { true: <真の基準>, false: <偽の基準> } } } }`
-- 応答は `answers.<名前> = { type: "noul", noul: <0〜1> }`、`model`、`usage`（`input_tokens`、`output_tokens`）。実機で `wrangler dev` から受けた値は、`{ "state": "Completed", "result": { この応答 } }` に包まれていた。docs の例に包みは無い。deploy した Worker で包みが付くかは未確認で、作業 3 で zod が両方を受けるか実機で決める
+- 応答は `answers.<名前> = { type: "noul", noul: <0〜1> }`、`model`、`usage`（`input_tokens`、`output_tokens`）。実機で `wrangler dev` から受けた値は、`{ "state": "Completed", "result": { この応答 } }` に包まれていた。docs の例に包みは無い。deploy した Worker で包みが付くかは未確認のまま、Worker A の zod は両方を受けると決めた（作業 3、#43）。実機で包みの有無が分かっても、受ける形は絞らず検査データに両方残す
 - `noul` は true である確率。実機の値は、IT の投稿（Workers と D1）0.99、Rust の借用チェッカー 0.99、学園祭のたこ焼き 0.01。閾値は `noul >= 0.6` なら保存、未満なら捨てる。0.6 付近の投稿は今回見ておらず、閾値の実測は 9-1 のまま
 - 1 件の使用量は入力約 360 トークン（質問の分を含む）、出力 21 トークンで、docs の単価（入力 1M トークンあたり $0.042）なら 1 件あたり約 $0.000015
 
@@ -345,6 +345,7 @@ AI Gateway は前払いのクレジットで動く。残高が尽きると Jev �
 
 | 日付 | 動いたもの | ADR |
 | --- | --- | --- |
+| 2026-11-01 | 9-2 の Jev 応答の包みを、zod で両方受けると決めた（作業 3、#43） | 無し（9-2 に残した「zod か実機か」の二択を、実機を待たない側に決めただけ） |
 | 2026-11-01 | 8 節の作業 10 を 10a（CI の `grep` と `wrangler secret list`。#52。依存 1）と 10b（ログの検査。#50。依存 9）の 2 行に分け、作業 11 の依存と 7 節の判定 5 の括弧をそれに合わせた。権限分離のバインディングの柵を、バインディングを触る作業 2〜7 の前に置くため | 無し（決定は動かさず、作業の切り方だけ直した） |
 | 2026-11-01 | ステータスを Draft から Fixed に上げた。7 節で 5-25〜5-27 と 5-29 を判定 1・2 から判定 5 に移し、権限分離の検査をマイルストーン 5（作業 10）で数えるようにした。8 節は動かしていない | 無し（決定は動かさず、測る時期を作業 10 に合わせただけ） |
 | 2026-11-01 | 2 節に Worker ごとの持ち物（Worker A を含む）、5-25・5-26 の判定を設定のバインディングと `wrangler secret list` の 2 本に分けて 5-29 を足す、5-1・5-11 に起動テストの扱い、8 節に作業 1 の実績と再 deploy・本番マイグレーション、作業 2・3・5・10 を直す | [ADR tech-requirements-0005](ADR/tech-requirements/0005-sync-with-implementation.md) |

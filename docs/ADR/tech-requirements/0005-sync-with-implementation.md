@@ -1,6 +1,6 @@
 ---
 source: agent/ADR/tech-requirements/0005-sync-with-implementation.md
-source-hash: 326bc1a160e2ab6c0ae4b503df8bdcb36082019b
+source-hash: 8e0a4447e28b4e5774f31b6ce53c22a4b8e3e153
 ---
 
 # ADR tech-requirements-0005 の要約: 権限の判定を、設定ファイルで secret を探す形から 2 本に分けた

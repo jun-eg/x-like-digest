@@ -48,3 +48,18 @@ jobs:
         run: npm run check
       - name: テスト
         run: npm test
+      # 権限分離（tech-requirements 5-25・5-26・5-29 の (a)）。secret は wrangler.jsonc に出ないので (b) の `wrangler secret list` は人が手元で見る。
+      - name: 権限分離（3 Worker のバインディング）
+        run: |
+          has() { grep -Eq "\"$2\"[[:space:]]*:" "workers/$1/wrangler.jsonc"; }
+          fail=0
+          for key in d1_databases ai services; do
+            if has summarizer "$key"; then echo "::error file=workers/summarizer/wrangler.jsonc::summarizer に $key がある（5-25）"; fail=1; fi
+          done
+          if has orchestrator ai; then echo "::error file=workers/orchestrator/wrangler.jsonc::orchestrator に ai がある（5-26）"; fail=1; fi
+          for key in d1_databases ai; do
+            if ! has ingest "$key"; then echo "::error file=workers/ingest/wrangler.jsonc::ingest に $key が無い（5-29）"; fail=1; fi
+          done
+          if has ingest services; then echo "::error file=workers/ingest/wrangler.jsonc::ingest に services がある（5-29）"; fail=1; fi
+          exit $fail
+

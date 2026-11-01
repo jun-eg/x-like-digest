@@ -106,6 +106,27 @@ describe("5-2 共有シークレットで認証する", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it.each([
+    ["undefined と Bearer undefined", undefined, "Bearer undefined"],
+    ["undefined と Bearer 空", undefined, "Bearer "],
+    ["空文字と Bearer 空", "", "Bearer "],
+  ])(
+    "secret が未設定・空のとき（%s）、Bearer 偽装でも 401 で 0 行・Jev 0 回",
+    async (_name, secret, auth) => {
+      const { env: e, calls } = envWith(itJev);
+      const res = await handle(
+        post(goodBody, { headers: { authorization: auth } }),
+        {
+          ...e,
+          IFTTT_SECRET: secret,
+        },
+      );
+      expect(res.status).toBe(401);
+      expect(await rows()).toBe(0);
+      expect(calls).toHaveLength(0);
+    },
+  );
+
   it("worker 本体でも誤った secret は 401 で 0 行", async () => {
     const res = await exports.default.fetch(URL_, {
       method: "POST",

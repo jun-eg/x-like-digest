@@ -8,7 +8,8 @@ export interface IngestEnv {
   DB: D1Database;
   AI: JevRunner;
   AI_GATEWAY_ID: string;
-  IFTTT_SECRET: string;
+  // 実行時に secret が無いことがある（.dev.vars 無し、deploy 先で消えた）
+  IFTTT_SECRET: string | undefined;
 }
 
 const WEBHOOK_PATH = "/webhooks/x-like";
@@ -20,9 +21,10 @@ const json = (status: number, body: Record<string, string>) =>
 // 長さの違いも漏らさないよう、ハッシュにしてから定数時間で比べる
 async function secretMatches(
   header: string | null,
-  secret: string,
+  secret: string | undefined,
 ): Promise<boolean> {
-  if (header === null) return false;
+  // secret が無いときに `Bearer undefined` を通さない
+  if (header === null || !secret) return false;
   const enc = new TextEncoder();
   const [a, b] = await Promise.all([
     crypto.subtle.digest("SHA-256", enc.encode(header)),

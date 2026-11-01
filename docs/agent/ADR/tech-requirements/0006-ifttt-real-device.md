@@ -1,6 +1,6 @@
 # ADR tech-requirements-0006: 9-8 を実機で確定した。Body は本文を `<<<` `>>>` で囲み、12 秒には収まった
 
-- **Status**: 有効
+- **Status**: 取り消し（[ADR tech-requirements-0007](0007-x-api-entry.md) が上書き）
 - **Date**: 2026-11-01
 - **対象**: docs/agent/tech-requirements.md — 4-1、7 節の判定 1、8 節の作業 4、9 節の 8 行目と「9-8 の確定内容」
 - **出典**: issue #44（親 #42）、ADR design-doc-0002、利用者の実機の記録（2026-11-01）

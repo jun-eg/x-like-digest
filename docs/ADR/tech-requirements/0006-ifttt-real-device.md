@@ -1,13 +1,13 @@
 ---
 source: agent/ADR/tech-requirements/0006-ifttt-real-device.md
-source-hash: dd01ed175443b4943dc10526885f81459b25bbe5
+source-hash: 36e5b48510fcac15adcb5b4c9f3d960c184b1c34
 ---
 
-# ADR tech-requirements-0006 の要約: 9-8 を実機で確定した
+# ADR tech-requirements-0006 の要約: 9-8 を実機で確定した（取り消し）
 
-IFTTT の Body に本文をそのまま差すと、改行を含む投稿で JSON が壊れて 400 になった。本文を `<<<` と `>>>` で囲むと改行が残ったまま保存された。応答の 12 秒には収まった。
+ADR tech-requirements-0007 が上書きした。入口が IFTTT から X の API で取りに行く形に替わり、9-8 の「本文を `<<<` `>>>` で囲む」「12 秒に収まった」は、受ける口が無くなって当てはまらなくなった。
 
-判定 1 の線は「1 行」から「行数が流した IT 系の件数と一致、非 IT 系は 0 行、2 回目で増えない」に直した（Free はまとめて届くため）。実機は IT 系 2 件 = 2 行で合格した。
-未確認は、リンクの無い投稿の空の `first_url`、400 の理由がログに出ないこと、IFTTT 自身の再送。Body の全文は技術の要件定義 4-1。
+生きているのは実機の事実だけ。IFTTT の Applet は組め、改行を含む投稿は本文を囲むと壊れず保存され、IT 系 2 件が 2 行で入って判定 1 の線を満たした。この記録は 0006 と 0007 の「それまでの結論」から読める。
+判定 1 は X の API で取り込んだ形で測り直す。未確認だった IFTTT 自身の再送は、再送を受けない入口になって意味を失った。
 
 [原本](../../agent/ADR/tech-requirements/0006-ifttt-real-device.md)

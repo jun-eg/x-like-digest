@@ -76,7 +76,7 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 
 | 決めること | 決めたこと | 縛っている上流の行 |
 | --- | --- | --- |
-| 実行環境 | Cloudflare Workers（Free）3 本、D1（Free）1 本、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`）。Jev は Workers AI のモデルではなく、支払いは Cloudflare のクレジットに一括する。常駐プロセスを持たない | Design Doc 2・5「固定費 $0、自宅サーバー無し」 |
+| 実行環境 | Cloudflare Workers（Free）3 本、D1（Free）1 本、AI Gateway 経由の TypeSafe Jev（`typesafe/jev`）。Jev は Workers AI のモデルではなく、支払いは Cloudflare のクレジットに一括する。常駐プロセスを持たない | Design Doc 1・5「固定費 $0、自宅サーバー無し」 |
 | 公開面 | Worker A の `POST /webhooks/x-like` だけ。Worker B・C は公開ルートも `workers.dev` も無効 | 6「入口」「権限分離」 |
 | 秘密の置き場 | IFTTT の共有シークレットは Worker A、GitHub トークンは Worker B、Claude API キーは Worker C に、それぞれ Cloudflare Secret として置く。1 つの Worker に 2 つ以上置かない | 6「権限分離」 |
 | セットアップに要求するもの | Node（`.node-version` の版）、wrangler、Cloudflare・IFTTT・GitHub・Claude API の各アカウント。IFTTT の Applet と GitHub のリポジトリ・トークンは利用者が導入時に作る | 6「前提にしている『すでにあるもの』」 |
@@ -299,7 +299,7 @@ Design Doc 6 のスコープ外をそのまま引く。広げない。
 
 2026-11-01 に、`node_modules/.bin/wrangler dev`（remote の AI バインディング）で動かした一時 Worker から、`env.AI.run` で 4 回呼んで確かめた（Cloudflare の docs は `https://developers.cloudflare.com/ai/models/typesafe/jev/`）。
 
-- モデル ID は `typesafe/jev`。応答の `model` は `jev-1.13.0`。カタログに `typesafe/jev-1.14.0` もあるが、1.14 は呼んでおらず、`noul` の 0.6 は 1.13 の応答で見ているので、版を固定せず別名の `typesafe/jev` を採る。`model` が変わったら閾値（9-1）を見直す
+- モデル ID は `typesafe/jev`。応答の `model` は `jev-1.13.0`。人の決定（2026-11-01）で別名の `typesafe/jev` を採る。カタログには `typesafe/jev-1.13.0` と `typesafe/jev-1.14.0` がある。別名が 1.14 へ移ると 0.6 を確かめていない版で判定することになるので、応答の `model` が `jev-1.13.0` から変わったら閾値（9-1）を見直す
 - 呼び方は `env.AI.run("typesafe/jev", input, { gateway: { id } })`。Worker A の AI バインディングをそのまま使い、TypeSafe の API キーも Cloudflare の API トークンも Worker A に置かない。gateway ID は `x-like-digest-jev`（Worker A の `vars` の `AI_GATEWAY_ID`。秘密ではない）。gateway 指定なしでも同じ応答が返ったが、gateway を指定すれば使用量がこの gateway に残るので指定する
 - 入力は `{ state: <判定する本文>, questions: { <名前>: { type: "noul", instructions: <true/false の質問>, criteria: { true: <真の基準>, false: <偽の基準> } } } }`
 - 応答は `answers.<名前> = { type: "noul", noul: <0〜1> }`、`model`、`usage`（`input_tokens`、`output_tokens`）。実機で `wrangler dev` から受けた値は、`{ "state": "Completed", "result": { この応答 } }` に包まれていた。docs の例に包みは無い。deploy した Worker で包みが付くかは未確認で、Worker A の作業 3 で zod が両方を受けるか実機で決める

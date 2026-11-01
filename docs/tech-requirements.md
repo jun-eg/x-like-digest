@@ -1,6 +1,6 @@
 ---
 source: agent/tech-requirements.md
-source-hash: 2c03eab4ecdb5d393ebfd8c2ad3e628ede43c3f6
+source-hash: c42c9559edac89b430bf2f0f967c839bd2bcf42e
 ---
 
 # 技術の要件定義の要約: X いいね IT 情報デイリーダイジェスト

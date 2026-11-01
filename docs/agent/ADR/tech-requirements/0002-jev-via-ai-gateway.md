@@ -16,7 +16,7 @@ Jev は TypeSafe AI のモデルで、Workers AI のモデルではなかった�
 
 ## 新しい結論
 
-- Jev は AI Gateway 経由の `typesafe/jev`（応答の `model` は `jev-1.13.0`）。版は固定せず別名を採る。1.14 は試しておらず、閾値 0.6 は 1.13 の応答で見ているため。`model` が変わったら閾値を見直す
+- Jev は AI Gateway 経由の `typesafe/jev`（応答の `model` は `jev-1.13.0`）。人の決定（2026-11-01）で別名を採る。カタログには `typesafe/jev-1.13.0` と `-1.14.0` がある。別名が 1.14 へ移ると 0.6 を確かめていない版で判定することになるので、`model` が `jev-1.13.0` から変わったら閾値を見直す
 - 呼び方は `env.AI.run("typesafe/jev", { state, questions }, { gateway: { id } })`。入力と応答の形は技術の要件定義 9-2 に書いた
 - ingest の AI バインディング `{ "binding": "AI", "remote": true }` は残す。バインディングだけで Gateway を呼べるので、ingest の secret は IFTTT の共有シークレット 1 本のまま。REST で呼ぶ案は Cloudflare の API トークンが要り、secret が増えるので採らない
 - gateway ID は ingest の `vars` の `AI_GATEWAY_ID` に置く。秘密ではなく、gateway を替えるときにコードを触らずに済む。gateway 指定なしでも呼べたが、指定すれば使用量が x-like-digest-jev に残る

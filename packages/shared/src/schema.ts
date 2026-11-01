@@ -13,6 +13,29 @@ export const posts = sqliteTable("posts", {
   batch_id: text("batch_id"),
 });
 
+// 取得の止め場所。最初のページで返った post_id を、新しい順に 1〜5 で覚える。
+// 取り込んだか捨てたかは問わない。posts の有無で取得済みを決めると、捨てた投稿が毎時判定し直される（9-13）。
+export const seen_likes = sqliteTable("seen_likes", {
+  post_id: text("post_id").primaryKey(),
+  position: integer("position").notNull().unique(),
+});
+
+export const HALT_REASONS = ["page_limit", "failed_across_utc_day"] as const;
+
+// 1 行だけ（id = 1）。Worker A だけが書く。halted_at が立っていれば Worker A は何もせず終える。
+// auth_failed_at は止める印ではなく、認証が通らなくなった最初の時刻の記録（9-11）。
+export const ingest_state = sqliteTable(
+  "ingest_state",
+  {
+    id: integer("id").primaryKey(),
+    halted_at: text("halted_at"),
+    halt_reason: text("halt_reason", { enum: HALT_REASONS }),
+    failing_since: text("failing_since"),
+    auth_failed_at: text("auth_failed_at"),
+  },
+  (t) => [check("ingest_state_single_row", sql`${t.id} = 1`)],
+);
+
 export const JOB_STATUSES = [
   "PROCESSING",
   "READY_TO_PUBLISH",
@@ -48,5 +71,7 @@ export const jobs = sqliteTable(
 
 export type Post = typeof posts.$inferSelect;
 export type NewPost = typeof posts.$inferInsert;
+export type SeenLike = typeof seen_likes.$inferSelect;
+export type IngestState = typeof ingest_state.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;

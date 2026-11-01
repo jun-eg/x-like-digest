@@ -8,6 +8,7 @@
       "!**/worker-configuration.d.ts",
       "!**/package-lock.json",
       "!packages/shared/migrations",
+      "!workers/ingest/migrations-auth",
       "!.claude/skills/wrangler",
       "!.claude/skills/workers-best-practices",
       "!.claude/settings.local.json",

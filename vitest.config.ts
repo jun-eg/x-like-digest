@@ -41,6 +41,11 @@ type AuxiliaryWorker = Awaited<ReturnType<typeof summarizerWorker>>;
 // マイグレーションは本番と同じ SQL を使う。置き場は wrangler.jsonc の migrations_dir と同じ
 const migrations = await readD1Migrations("./packages/shared/migrations");
 
+// 認証用の D1（AUTH_DB）は投稿用とは別の migration。ingest だけに結ぶ
+const authMigrations = await readD1Migrations(
+  "./workers/ingest/migrations-auth",
+);
+
 // secret は wrangler.jsonc に出ないので、テストだけの値をここで渡す
 const worker = (
   name: string,
@@ -58,14 +63,18 @@ const worker = (
   test: {
     name,
     include: [`workers/${name}/test/**/*.test.ts`],
-    provide: { migrations },
+    provide: { migrations, authMigrations },
   },
 });
 
 export default defineConfig({
   test: {
     projects: [
-      worker("ingest", [], { IFTTT_SECRET: "test-secret" }),
+      worker("ingest", [], {
+        X_REFRESH_TOKEN: "test-seed-refresh-token",
+        X_CLIENT_ID: "test-client-id",
+        X_USER_ID: "1111111111111111111",
+      }),
       worker("orchestrator", [await summarizerWorker()]),
       worker("summarizer"),
     ],

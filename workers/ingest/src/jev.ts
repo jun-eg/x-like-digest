@@ -2,8 +2,10 @@ import { z } from "zod";
 
 export const JEV_MODEL = "typesafe/jev";
 export const JEV_THRESHOLD = 0.6;
-// IFTTT の Webhook は 12 秒で切れる（9-8）。Jev に使えるのはその内側
-const JEV_TIMEOUT_MS = 8000;
+// Cron Trigger の実行時間の上限は 15 分（900 秒。Cloudflare の制限）。最悪の回は 49 件（10 ページ目まで、行き当たる 1 件を除く）を
+// 順に Jev にかけ、IT 系なら oEmbed も引く。49 ×（Jev 10 秒 + oEmbed 5 秒）= 735 秒で、上限に余裕をもって収まる。
+// 打ち切られると recordFailure も batch も走らず、日付またぎの止め方（9-13）が効かない
+const JEV_TIMEOUT_MS = 10_000;
 
 const QUESTION = "it";
 
@@ -64,11 +66,12 @@ export async function judgeIt(
   ai: JevRunner,
   gatewayId: string,
   text: string,
+  timeoutMs: number = JEV_TIMEOUT_MS,
 ): Promise<Judgement> {
   try {
     const raw = await withTimeout(
       ai.run(JEV_MODEL, buildInput(text), { gateway: { id: gatewayId } }),
-      JEV_TIMEOUT_MS,
+      timeoutMs,
     );
     const parsed = jevResponse.safeParse(raw);
     if (!parsed.success)

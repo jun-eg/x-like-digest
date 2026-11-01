@@ -52,7 +52,7 @@ jobs:
       # BINDINGS は wrangler の config-schema.json のバインディングのキー。wrangler が増やしたら足す。行頭 // の行は数えない。
       - name: 権限分離（3 Worker のバインディング）
         run: |
-          BINDINGS="d1_databases ai services kv_namespaces r2_buckets queues durable_objects vectorize hyperdrive browser workflows send_email analytics_engine_datasets dispatch_namespaces mtls_certificates images media stream version_metadata secrets_store_secrets ai_search ai_search_namespaces agent_memory pipelines artifacts flagship ratelimits worker_loaders vpc_services vpc_networks unsafe_hello_world"
+          BINDINGS="d1_databases ai services kv_namespaces r2_buckets queues durable_objects vectorize hyperdrive browser workflows send_email analytics_engine_datasets dispatch_namespaces mtls_certificates images media stream version_metadata secrets_store_secrets ai_search ai_search_namespaces agent_memory pipelines artifacts flagship ratelimits worker_loaders vpc_services vpc_networks unsafe_hello_world unsafe analytics k2 logfwdr assets env previews exports"
           fail=0
           for w in ingest orchestrator summarizer; do
             if ! test -f "workers/$w/wrangler.jsonc"; then echo "::error file=workers/$w/wrangler.jsonc::$w の wrangler.jsonc が無い"; fail=1; fi

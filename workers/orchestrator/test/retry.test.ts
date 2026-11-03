@@ -104,28 +104,48 @@ it("5-21: 本処理の開始時に attempts・next_attempt_at・deadline_at が�
   expect(row?.deadline_at).toBe(DEADLINE);
 });
 
-it("5-21・5-22: 18:00 開始の失敗列で next_attempt_at が 18:10〜19:00、20:00、21:00 JST になり、attempts が 1 ずつ増える", async () => {
-  await ready();
-  const gh = putFails(500);
+it("5-21・5-22: 本番の発火（scheduled）で、18:00 開始の失敗列が 18:10〜19:00、20:00、21:00 JST になり、attempts が 1 ずつ増える", async () => {
+  await db.insert(posts).values(post("1", null));
+  const fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async (_i, init) =>
+      init?.method === "PUT" ? status(500) : notFound(),
+    );
+  const summarize = vi.fn(async () => ({ markdown: MD }));
+  const testEnv: Env = {
+    ...env,
+    SUMMARIZER: { summarize } as unknown as Env["SUMMARIZER"],
+  };
+  const handler: ExportedHandler<Env> = worker;
   const fires = [
-    "09:00", // 18:00 JST
+    "09:00", // 18:00 JST。(c) が作り、同じ発火で 1 回目を試す
     "09:10",
     "09:20",
     "09:30",
     "09:40",
     "09:50",
     "10:00", // 7 回目
+    "10:10", // 次は 11:00 なので試さない
     "11:00",
   ];
   const next: string[] = [];
   const attempts: number[] = [];
   for (const hhmm of fires) {
-    await run(gh, at(DAY, hhmm));
+    const ctx = createExecutionContext();
+    await handler.scheduled?.(
+      createScheduledController({
+        scheduledTime: at(DAY, hhmm),
+        cron: "*/10 * * * *",
+      }),
+      testEnv,
+      ctx,
+    );
+    await waitOnExecutionContext(ctx);
     const row = await job();
     next.push(row?.next_attempt_at?.slice(11, 16) ?? "");
     attempts.push(row?.attempts ?? -1);
   }
-  // 18:10, 18:20, 18:30, 18:40, 18:50, 19:00 JST, 20:00, 21:00 JST
+  fetchSpy.mockRestore();
   expect(next).toEqual([
     "09:10",
     "09:20",
@@ -134,10 +154,12 @@ it("5-21・5-22: 18:00 開始の失敗列で next_attempt_at が 18:10〜19:00�
     "09:50",
     "10:00",
     "11:00",
+    "11:00",
     "12:00",
   ]);
-  expect(attempts).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  expect(attempts).toEqual([1, 2, 3, 4, 5, 6, 7, 7, 8]);
   expect((await job())?.status).toBe("READY_TO_PUBLISH");
+  expect(summarize).toHaveBeenCalledTimes(1);
 });
 
 it("5-20: next_attempt_at より前の発火では保存を試さない", async () => {
@@ -418,4 +440,61 @@ it("5-18: 内容が違う既存ファイルは期限まで再試行し、期限�
 
   expect((await job())?.status).toBe("ABANDONED");
   expect(gh.calls.filter((c) => c.method === "PUT")).toHaveLength(0);
+});
+
+it("5-24: ヘッダの無い副次レート制限の 403 は、本文の message で見分けて再試行する", async () => {
+  await ready();
+  const gh = fakeGitHub((req) =>
+    req.method === "PUT"
+      ? Response.json(
+          { message: "You have exceeded a secondary rate limit." },
+          { status: 403 },
+        )
+      : notFound(),
+  );
+
+  await run(gh, START);
+
+  const row = await job();
+  expect(row?.status).toBe("READY_TO_PUBLISH");
+  expect(row?.attempts).toBe(1);
+  expect(row?.error_type).toBe("PUT 403");
+});
+
+it("規則 6: deadline_at が NULL の行も、期限（翌日 09:00 UTC）後の (a) で最終試行に入り、失敗なら捨てる", async () => {
+  await db.insert(jobs).values({
+    job_id: DAY,
+    processed_date: DAY,
+    post_count: 1,
+    status: "READY_TO_PUBLISH",
+    markdown: MD,
+  });
+  await db.insert(posts).values(post("1", DAY));
+  const gh = putFails(500);
+
+  await settleExpired({
+    db,
+    token: "tok",
+    now: new Date(DEADLINE),
+    fetchFn: gh.fetchFn,
+  });
+
+  expect((await job())?.status).toBe("ABANDONED");
+  expect(await db.select().from(posts)).toHaveLength(0);
+  // 期限前なら (a) は触らない
+  await db.delete(jobs);
+  await db.insert(jobs).values({
+    job_id: DAY,
+    processed_date: DAY,
+    post_count: 1,
+    status: "READY_TO_PUBLISH",
+    markdown: MD,
+  });
+  await settleExpired({
+    db,
+    token: "tok",
+    now: at(DAY, "20:00"),
+    fetchFn: gh.fetchFn,
+  });
+  expect((await job())?.status).toBe("READY_TO_PUBLISH");
 });

@@ -1,5 +1,5 @@
 import { jobs, posts } from "@x-like-digest/shared";
-import { and, eq, gt, inArray, isNotNull, isNull, lte, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { z } from "zod";
 import { deadlineOf } from "./batch";
 import type { createDb } from "./db";
@@ -53,13 +53,23 @@ function retryAfter(res: Response, now: Date): Date | null {
 }
 
 // 4-4 の 4・5。403 はレート制限（残りが 0、または Retry-After 付き）だけ再試行する
-function httpError(op: string, res: Response, now: Date): PublishError {
+// 副次レート制限の 403 はヘッダが付かず本文の message でしか見分けられないことがある。
+// 本文は判定にだけ使い、ログにも error_type にも出さない（5-28）
+async function httpError(
+  op: string,
+  res: Response,
+  now: Date,
+): Promise<PublishError> {
   const message = `${op} ${res.status}`;
   const retryAt = retryAfter(res, now);
-  const limited =
+  let limited =
     res.status === 429 ||
     (res.status === 403 &&
       (res.headers.get("x-ratelimit-remaining") === "0" || retryAt !== null));
+  if (res.status === 403 && !limited) {
+    const text = await res.text().catch(() => "");
+    limited = /rate limit/i.test(text);
+  }
   if (limited) return new PublishError(message, "retry", retryAt);
   if ([401, 403, 404, 422].includes(res.status)) {
     return new PublishError(message, "fatal");
@@ -105,7 +115,7 @@ function client(token: string, fetchFn: typeof fetch, now: Date) {
         { headers, signal: AbortSignal.timeout(TIMEOUT_MS) },
       );
       if (res.status === 404) return null;
-      if (!res.ok) throw httpError("GET", res, now);
+      if (!res.ok) throw await httpError("GET", res, now);
       return fileSchema.parse(await res.json());
     },
     async put(
@@ -123,7 +133,7 @@ function client(token: string, fetchFn: typeof fetch, now: Date) {
       );
       // 新規 201、更新 200（4-4 の 3）
       if (res.status !== 201 && res.status !== 200) {
-        throw httpError("PUT", res, now);
+        throw await httpError("PUT", res, now);
       }
       return putSchema.parse(await res.json()).commit.sha;
     },
@@ -287,6 +297,13 @@ function usable(
   );
 }
 
+function isExpired(job: Job, now: Date): boolean {
+  const deadline = job.deadline_at
+    ? new Date(job.deadline_at)
+    : deadlineOf(job.job_id);
+  return deadline <= now;
+}
+
 const columns = {
   job_id: jobs.job_id,
   markdown: jobs.markdown,
@@ -305,14 +322,9 @@ export async function settleExpired({
   const expired = await db
     .select(columns)
     .from(jobs)
-    .where(
-      and(
-        eq(jobs.status, "READY_TO_PUBLISH"),
-        isNotNull(jobs.deadline_at),
-        lte(jobs.deadline_at, now.toISOString()),
-      ),
-    );
-  for (const job of usable(expired)) {
+    .where(and(eq(jobs.status, "READY_TO_PUBLISH")));
+  // deadline_at が NULL の行も deadlineOf で期限を決める（規則 6）
+  for (const job of usable(expired).filter((j) => isExpired(j, now))) {
     await attempt(db, gh, job, now, true);
   }
 }
@@ -335,11 +347,10 @@ export async function publishReady({
       and(
         eq(jobs.status, "READY_TO_PUBLISH"),
         or(isNull(jobs.next_attempt_at), lte(jobs.next_attempt_at, at)),
-        or(isNull(jobs.deadline_at), gt(jobs.deadline_at, at)),
       ),
     );
 
-  for (const job of usable(due)) {
+  for (const job of usable(due).filter((j) => !isExpired(j, now))) {
     await attempt(db, gh, job, now, false);
   }
 

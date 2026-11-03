@@ -15,5 +15,8 @@ export default {
       summarizer: env.SUMMARIZER,
       now,
     });
+    // (c) が READY_TO_PUBLISH にしたジョブの最初の保存は、同じ発火で行う。
+    // 次の発火まで待つと、next_attempt_at の列が 5-22 の表から 10 分ずれる
+    await publishReady({ db, token: env.GITHUB_TOKEN, now });
   },
 } satisfies ExportedHandler<Env>;

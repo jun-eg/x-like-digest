@@ -62,6 +62,7 @@ export class FakeX {
   likes: FakeLike[] = [];
   tokenStatus: TokenReply = 200;
   likesFailPages = new Set<number>();
+  // body が文字列なら JSON でない本文としてそのまま返す
   likesFailReply: { status: number; body: unknown } = {
     status: 503,
     body: { title: "Service Unavailable" },
@@ -125,9 +126,13 @@ export class FakeX {
       const offset = Number(url.searchParams.get("pagination_token") ?? 0);
       const page = offset / 5 + 1;
       if (this.likesFailPages.has(page))
-        return Response.json(this.likesFailReply.body, {
-          status: this.likesFailReply.status,
-        });
+        return typeof this.likesFailReply.body === "string"
+          ? new Response(this.likesFailReply.body, {
+              status: this.likesFailReply.status,
+            })
+          : Response.json(this.likesFailReply.body, {
+              status: this.likesFailReply.status,
+            });
       if (this.likesBrokenPages.has(page)) return Response.json({ data: "x" });
       const slice = this.likes.slice(offset, offset + 5);
       return Response.json({

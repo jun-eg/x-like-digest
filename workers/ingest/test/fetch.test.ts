@@ -422,7 +422,7 @@ describe("X の失敗応答のログ", () => {
     expect(text).not.toContain("架空のクライアント");
   });
 
-  it("想定外の文字を含む欄と JSON でない本文は出さない", async () => {
+  it("数字の並び・引用符を含む欄と、型の違う欄は出さない", async () => {
     const h = harness();
     h.x.likes = newest(3);
     h.x.likesFailPages.add(1);
@@ -442,6 +442,48 @@ describe("X の失敗応答のログ", () => {
     expect(lines).toContainEqual({
       event: "ingest_skipped",
       error_type: "http_403",
+    });
+  });
+
+  it("JSON でない本文なら種別名の欄は付かない", async () => {
+    const h = harness();
+    h.x.likes = newest(3);
+    h.x.likesFailPages.add(1);
+    h.x.likesFailReply = { status: 403, body: "<html>Forbidden</html>" };
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runIngest(h.env, h.deps);
+    const lines = logged(spy);
+    spy.mockRestore();
+
+    expect(lines).toContainEqual({
+      event: "ingest_skipped",
+      error_type: "http_403",
+    });
+  });
+
+  it("2 ページ目の失敗は page_fetch_failed に種別名を載せ、ingest_failed も出す", async () => {
+    await seedSeen([pid(1)]);
+    const h = harness();
+    h.x.likes = newest(8);
+    h.x.likesFailPages.add(2);
+    h.x.likesFailReply = {
+      status: 403,
+      body: { title: "Forbidden", type: "about:blank" },
+    };
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runIngest(h.env, h.deps);
+    const lines = logged(spy);
+    spy.mockRestore();
+
+    expect(lines).toContainEqual({
+      event: "page_fetch_failed",
+      error_type: "http_403",
+      x_title: "Forbidden",
+      x_type: "about:blank",
+    });
+    expect(lines).toContainEqual({
+      event: "ingest_failed",
+      error_type: "PageFetchError",
     });
   });
 });

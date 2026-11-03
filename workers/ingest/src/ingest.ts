@@ -116,7 +116,6 @@ export async function runIngest(
           return;
         }
         log("page_fetch_failed", {
-          page,
           error_type: result.errorType,
           ...result.problem,
         });

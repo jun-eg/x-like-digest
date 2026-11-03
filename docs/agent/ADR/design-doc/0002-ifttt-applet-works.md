@@ -1,6 +1,6 @@
 # ADR design-doc-0002: 6 節の△「IFTTT Free の Applet が実機で成立するか」が、成立すると分かって減った
 
-- **Status**: 有効
+- **Status**: 取り消し（[ADR design-doc-0003](0003-x-api-pull-entry.md) が上書き）
 - **Date**: 2026-11-01
 - **対象**: docs/agent/design-doc.md — 6 節「埋まっていないこと（△）」
 - **出典**: issue #44（親 #42）、技術の要件定義 9-8、利用者の実機の記録（2026-11-01）

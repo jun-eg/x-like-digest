@@ -8,6 +8,13 @@
       "when": 1793483259255,
       "tag": "0000_huge_alex_power",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793558355521,
+      "tag": "0001_complex_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }

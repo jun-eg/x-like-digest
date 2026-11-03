@@ -15,8 +15,12 @@ export function countChars(markdown: string): number {
 }
 
 // 前の文字が語の一部なら別のホスト（evil-x.com など）なので拾わない
+// ユーザー名の位置は `i/web`（ユーザー名の無い形）も拾う。大文字小文字は区別しない
 const STATUS_URL =
-  /(?<![\w.-])(?:https?:\/\/)?(?:www\.)?(?:x|twitter)\.com\/[^\s/)\]>"'`]+\/status\/\d+/gu;
+  /(?<![\w.-])(?:https?:\/\/)?(?:www\.)?(?:x|twitter)\.com\/(?:i\/web|[^\s/)\]>"'`]+)\/status\/\d+/giu;
+
+// 照合は両側をクエリ・フラグメントを除いた小文字にそろえて行う
+const canon = (u: string): string => u.replace(/[?#].*$/u, "").toLowerCase();
 
 export function validateDigest(
   markdown: string,
@@ -43,9 +47,9 @@ export function validateDigest(
     errors.push(`文字数 ${chars} が ${MIN_CHARS}〜${MAX_CHARS} の外`);
   }
 
-  const known = new Set(tweetUrls);
+  const known = new Set(tweetUrls.map(canon));
   for (const [url] of markdown.matchAll(STATUS_URL)) {
-    if (!known.has(url)) errors.push(`バッチに無い URL: ${url}`);
+    if (!known.has(canon(url))) errors.push(`バッチに無い URL: ${url}`);
   }
 
   return errors;

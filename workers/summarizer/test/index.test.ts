@@ -120,6 +120,22 @@ describe("5-13 形式の機械検証", () => {
     expect(validateDigest(scheme, urls)).not.toEqual([]);
   });
 
+  it("作った URL（大文字のホスト・ユーザー名の無い形）も落ちる", () => {
+    const upper = digest(1100, (m) => `${m}\nhttps://X.com/mallory/status/9\n`);
+    expect(validateDigest(upper, urls)).not.toEqual([]);
+
+    const web = digest(1100, (m) => `${m}\nhttps://x.com/i/web/status/9\n`);
+    expect(validateDigest(web, urls)).not.toEqual([]);
+  });
+
+  it("バッチ側の URL にクエリやフラグメントが付いていても、そのまま写した本文は通る", () => {
+    const withQuery = [`${URL_A}?s=20`, URL_B];
+    expect(validateDigest(digest(1100), withQuery)).toEqual([]);
+
+    const withFragment = [`${URL_A}#m`, URL_B];
+    expect(validateDigest(digest(1100), withFragment)).toEqual([]);
+  });
+
   it("status URL でない x.com のリンクは数えない", () => {
     const profile = digest(1100, (m) => `${m}\nhttps://x.com/alice\n`);
     expect(validateDigest(profile, urls)).toEqual([]);

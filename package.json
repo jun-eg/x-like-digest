@@ -14,7 +14,9 @@
     "check": "npm run lint && npm run check --workspaces --if-present",
     "test": "vitest run",
     "db:generate": "npm run db:generate -w @x-like-digest/shared",
+    "db:generate:auth": "npm run db:generate:auth -w @x-like-digest/ingest",
     "db:migrate:local": "wrangler d1 migrations apply DB --local -c workers/ingest/wrangler.jsonc",
+    "db:migrate:local:auth": "wrangler d1 migrations apply AUTH_DB --local -c workers/ingest/wrangler.jsonc",
     "deploy": "npm run deploy --workspaces --if-present"
   },
   "devDependencies": {

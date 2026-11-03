@@ -39,3 +39,13 @@ node scripts/秘密の検査.mjs      # ステージされた物を見る（pre-
 （GitHub・AWS・Anthropic・Google のトークンや鍵の形、秘密鍵、手元の `.env` と `.dev.vars` に書いた値そのもの）を見て、当たれば**ファイル名だけを挙げて**（値は出さない）1 で落ちる。
 `.gitignore` は `git add -f` で破れるので、ここでも止める。**検査は [`秘密の検査.test.mjs`](秘密の検査.test.mjs)**（`node --test "scripts/**/*.test.mjs"`。CI の job `hooks` が回す）。
 起こした経緯は [school-festival-shift#307](https://github.com/jun-eg/school-festival-shift/issues/307)（E2E の鍵と ID を手元に置くことになった）。
+
+## 最初の refresh token の取得
+
+```
+X_CLIENT_ID=<クライアント ID> node scripts/X認可フロー.mjs
+```
+
+**これは検査ではなく、Worker A の Secret `X_REFRESH_TOKEN` を入れる手元の手である。** 認可コードフロー（PKCE、client secret 無し）を loopback で受けて交換し、
+refresh token を `wrangler secret put X_REFRESH_TOKEN --name x-like-digest-ingest` の標準入力に渡す。**トークンは標準出力にもファイルにも出さない。**
+認証が通らなくなったときの入れ直し（技術の要件定義 9-11）も同じ手で行う。`X_CLIENT_ID` と `X_USER_ID` の Secret は手で入れる。**検査は [`X認可フロー.test.mjs`](X認可フロー.test.mjs)。**

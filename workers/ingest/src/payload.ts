@@ -11,7 +11,7 @@ export const payloadSchema = z.strictObject({
 
 export type Payload = z.infer<typeof payloadSchema>;
 
-const TWEET_HOSTS = new Set([
+export const TWEET_HOSTS = new Set([
   "x.com",
   "www.x.com",
   "twitter.com",

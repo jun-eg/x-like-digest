@@ -1,12 +1,12 @@
 ---
 source: agent/ADR/design-doc/0002-ifttt-applet-works.md
-source-hash: 44d774fa6f1e93a094724ae556ceec7ad753afbd
+source-hash: 364d49f6116cb851b283d0416d03ac29b74cc3d4
 ---
 
-# ADR design-doc-0002 の要約: IFTTT Free の Applet が実機で成立すると分かった
+# ADR design-doc-0002 の要約: IFTTT Free の Applet が実機で成立すると分かった（取り消し）
 
-Design Doc 6 節は、IFTTT Free の Applet が成立するかを未検証にしていた。実機で「New liked tweet by you」から Webhook を送る Applet が組め、いいね 3 件のうち IT 系 2 件だけが D1 に保存された。
+ADR design-doc-0003 が上書きした。Applet は実機で組め、いいね 3 件のうち IT 系 2 件だけが D1 に保存されたが、1 回の実行で 120 credits かかり無料枠では月 8 件分しか流せないので、入口としての結論は取り消した。
 
-入口の構成は変えない。制約は、Free のトリガー確認が 1 時間に 1 回で、いいねから届くまで最大 1 時間かかること。credit の残りと補充周期は未確認。
+生きているのは「IFTTT Free でも Applet は組める」という事実と、実機の記録（組み方、判定 1 を IT 系 2 件で満たしたこと）だけ。入口は 0003 のとおり X の API で取りに行く形になった。
 
 [原本](../../agent/ADR/design-doc/0002-ifttt-applet-works.md)

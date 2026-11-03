@@ -5,6 +5,7 @@
   "scripts": {
     "types": "wrangler types",
     "check": "tsc -p .",
+    "db:generate:auth": "drizzle-kit generate",
     "deploy": "wrangler deploy"
   },
   "dependencies": {

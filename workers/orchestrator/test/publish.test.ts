@@ -274,7 +274,8 @@ it("5-20: 発火の (b) が保存を行い、GitHub に繋がらなくても (c)
   await waitOnExecutionContext(ctx);
 
   expect(fetchSpy).toHaveBeenCalled();
-  expect((await job("2026-11-02"))?.status).toBe("READY_TO_PUBLISH");
+  // deadline_at が NULL でも期限は deadlineOf で決まり、翌日 09:00 UTC を過ぎているので (a) で捨てる
+  expect((await job("2026-11-02"))?.status).toBe("ABANDONED");
   expect((await job(DAY))?.status).toBe("READY_TO_PUBLISH");
   expect(summarize).toHaveBeenCalledTimes(1);
   fetchSpy.mockRestore();

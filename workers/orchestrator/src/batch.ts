@@ -25,6 +25,13 @@ export function batchBoundary(now: Date) {
   return { jobId, cutoff };
 }
 
+// 保存の期限は翌日 09:00:00 UTC（5-23）
+export function deadlineOf(jobId: string): Date {
+  return new Date(
+    new Date(`${jobId}T09:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000,
+  );
+}
+
 function log(event: string, fields: Record<string, string | number>): void {
   console.log(JSON.stringify({ event, ...fields }));
 }
@@ -50,6 +57,9 @@ export async function runDailyBatch({
       processed_date: jobId,
       post_count: 0,
       status: "PROCESSING",
+      attempts: 0,
+      next_attempt_at: now.toISOString(),
+      deadline_at: deadlineOf(jobId).toISOString(),
     })
     .onConflictDoNothing()
     .returning({ job_id: jobs.job_id });

@@ -178,6 +178,10 @@ it("5-20: 09:05 UTC の発火から本処理が走り、ジョブが 1 件で RE
   const ctx = createExecutionContext();
   const handler: ExportedHandler<Env> = worker;
   const testEnv: Env = { ...env, SUMMARIZER: summarizer as Env["SUMMARIZER"] };
+  // 同じ発火で最初の保存も試すので、GitHub は繋がらない偽物にする
+  const fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new TypeError("network down"));
 
   const controller = createScheduledController({
     scheduledTime: at("09:05:00"),
@@ -185,6 +189,7 @@ it("5-20: 09:05 UTC の発火から本処理が走り、ジョブが 1 件で RE
   });
   await handler.scheduled?.(controller, testEnv, ctx);
   await waitOnExecutionContext(ctx);
+  fetchSpy.mockRestore();
 
   const rows = await db.select().from(jobs);
   expect(rows).toHaveLength(1);

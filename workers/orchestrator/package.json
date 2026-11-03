@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@x-like-digest/shared": "*",
-    "drizzle-orm": "^0.45.4"
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7"
   }
 }

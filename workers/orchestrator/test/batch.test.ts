@@ -191,3 +191,25 @@ it("5-20: 09:05 UTC の発火から本処理が走り、ジョブが 1 件で RE
   expect(rows[0]?.status).toBe("READY_TO_PUBLISH");
   expect(summarize).toHaveBeenCalledTimes(1);
 });
+
+it("JST で翌日になった 15:05 UTC の発火は、前日分を確定しない", async () => {
+  await db.insert(posts).values(post("1", `${DAY}T01:00:00.000Z`));
+  const { summarize, summarizer } = fakeSummarizer();
+
+  await runDailyBatch({ db, summarizer, now: at("15:05:00") });
+
+  expect(await db.select().from(jobs)).toHaveLength(0);
+  expect((await db.select().from(posts))[0]?.batch_id).toBeNull();
+  expect(summarize).not.toHaveBeenCalled();
+});
+
+it("当日のジョブがあれば、15:05 UTC の発火でもジョブは増えない", async () => {
+  await db.insert(posts).values(post("1", `${DAY}T01:00:00.000Z`));
+  const { summarize, summarizer } = fakeSummarizer();
+
+  await runDailyBatch({ db, summarizer, now: at("09:05:00") });
+  await runDailyBatch({ db, summarizer, now: at("15:05:00") });
+
+  expect(await db.select().from(jobs)).toHaveLength(1);
+  expect(summarize).toHaveBeenCalledTimes(1);
+});

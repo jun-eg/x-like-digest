@@ -14,11 +14,15 @@ export type BatchDeps = {
   now: Date;
 };
 
-// 内部は UTC。バッチの切れ目は 18:00 JST = 09:00 UTC で、その日付がそのまま JST の日付になる（2 節、3 節の規則 3）
+// 内部は UTC だが、ジョブ ID は JST の日付（2 節、3 節の規則 3）。
+// 境界はその JST 日付の 18:00 JST = 09:00 UTC で作る。UTC の日付から作ると、
+// 15:00 UTC 以降（JST では翌日）の発火が、まだ来ていない翌日の境界を飛ばして前日分を確定してしまう
 export function batchBoundary(now: Date) {
-  const date = now.toISOString().slice(0, 10);
-  const cutoff = new Date(`${date}T09:00:00.000Z`);
-  return { jobId: date, cutoff };
+  const jobId = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const cutoff = new Date(`${jobId}T09:00:00.000Z`);
+  return { jobId, cutoff };
 }
 
 function log(event: string, fields: Record<string, string | number>): void {

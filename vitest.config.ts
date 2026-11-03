@@ -75,7 +75,9 @@ export default defineConfig({
         X_CLIENT_ID: "test-client-id",
         X_USER_ID: "1111111111111111111",
       }),
-      worker("orchestrator", [await summarizerWorker()]),
+      worker("orchestrator", [await summarizerWorker()], {
+        GITHUB_TOKEN: "test-github-token",
+      }),
       worker("summarizer"),
     ],
   },

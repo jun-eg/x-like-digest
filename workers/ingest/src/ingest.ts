@@ -134,7 +134,7 @@ export async function runIngest(
     if (seen.size > 0 && hit < 0) {
       // 何も扱わず、覚えも変えず、止める印だけ立てる
       await halt(db, now(), "page_limit");
-      log("ingest_halted_now", { reason: "page_limit" });
+      log("ingest_halted_now", { error_type: "page_limit" });
       return;
     }
 

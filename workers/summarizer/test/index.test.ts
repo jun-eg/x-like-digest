@@ -2,6 +2,10 @@ import { exports } from "cloudflare:workers";
 import type { SummarizeInput } from "@x-like-digest/shared";
 import { describe, expect, it } from "vitest";
 import {
+  auditLogs,
+  captureLogs,
+} from "../../../packages/shared/test-support/log-audit";
+import {
   MAX_INPUT_CHARS,
   MODEL,
   SummarizeError,
@@ -261,5 +265,49 @@ describe("5-11 Worker C は RPC だけ", () => {
       });
       expect(res.status).toBe(404);
     }
+  });
+});
+
+// 5-28: Worker C はログを出さない。全経路を流して、出力が 0 行で混入が 0 であることを数える。
+// 5-27（要求 Body に tools が無い）の検査は上の「5-12 Claude の呼び出し」にある
+describe("5-28 Worker C のログ", () => {
+  const KEY = "sk-ant-test-summarizer-key";
+
+  it("成功・失敗のどの経路でもログを出さず、本文も API キーも混ざらない", async () => {
+    const cap = captureLogs();
+    try {
+      const leak = `${KEY} ${input.posts[0]?.text}`;
+      const paths: Array<() => Promise<unknown>> = [
+        () =>
+          summarize(input, {
+            apiKey: KEY,
+            fetch: fakeClaude(ok(digest(1100))).fetch,
+          }),
+        () =>
+          summarize(input, {
+            apiKey: KEY,
+            fetch: fakeClaude(() => new Response(leak, { status: 500 })).fetch,
+          }),
+        () =>
+          summarize(input, {
+            apiKey: KEY,
+            fetch: fakeClaude(ok(digest(1100), "max_tokens")).fetch,
+          }),
+        () =>
+          summarize(input, {
+            apiKey: KEY,
+            fetch: fakeClaude(ok(digest(999))).fetch,
+          }),
+        () => summarize(input, { apiKey: undefined }),
+        () => summarize({ ...input, posts: [] }, { apiKey: KEY }),
+      ];
+      for (const path of paths) await path().catch(() => undefined);
+    } finally {
+      cap.restore();
+    }
+    expect(cap.lines).toEqual([]);
+    expect(
+      auditLogs(cap.lines, { secrets: [KEY], fragments: ["Workers の話"] }),
+    ).toEqual([]);
   });
 });

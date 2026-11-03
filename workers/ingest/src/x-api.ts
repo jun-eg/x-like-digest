@@ -36,9 +36,38 @@ export interface LikeEntry {
   tweet: LikedTweet | null;
 }
 
+// X の失敗応答のうち、固定の種別名だけを拾う。detail はユーザー ID などを含みうるので読まない（5-28）
+const problemField = z
+  .string()
+  .regex(/^[\w .:/-]{1,120}$/)
+  // 投稿やユーザーの ID が混ざった欄は捨てる
+  .refine((v) => !/\d{6,}/.test(v))
+  .optional()
+  .catch(undefined);
+const problem = z.object({
+  title: problemField,
+  type: problemField,
+  reason: problemField,
+});
+
+export type XProblem = Partial<
+  Record<"x_title" | "x_type" | "x_reason", string>
+>;
+
+async function readProblem(res: Response): Promise<XProblem> {
+  const parsed = problem.safeParse(await res.json().catch(() => undefined));
+  if (!parsed.success) return {};
+  const { title, type, reason } = parsed.data;
+  return {
+    ...(title !== undefined && { x_title: title }),
+    ...(type !== undefined && { x_type: type }),
+    ...(reason !== undefined && { x_reason: reason }),
+  };
+}
+
 export type PageResult =
   | { kind: "ok"; entries: LikeEntry[]; nextToken: string | undefined }
-  | { kind: "failed"; errorType: string };
+  | { kind: "failed"; errorType: string; problem?: XProblem };
 
 export async function fetchLikedPage(
   userId: string,
@@ -57,7 +86,12 @@ export async function fetchLikedPage(
       `https://api.x.com/2/users/${encodeURIComponent(userId)}/liked_tweets?${params}`,
       { headers: { authorization: `Bearer ${accessToken}` } },
     );
-    if (!res.ok) return { kind: "failed", errorType: `http_${res.status}` };
+    if (!res.ok)
+      return {
+        kind: "failed",
+        errorType: `http_${res.status}`,
+        problem: await readProblem(res),
+      };
     const envelope = likesEnvelope.safeParse(
       await res.json().catch(() => undefined),
     );

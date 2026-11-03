@@ -109,9 +109,16 @@ export async function runIngest(
       );
       if (result.kind === "failed") {
         if (page === 1) {
-          log("ingest_skipped", { error_type: result.errorType });
+          log("ingest_skipped", {
+            error_type: result.errorType,
+            ...result.problem,
+          });
           return;
         }
+        log("page_fetch_failed", {
+          error_type: result.errorType,
+          ...result.problem,
+        });
         throw new PageFetchError(result.errorType);
       }
       entries.push(...result.entries);
